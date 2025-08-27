@@ -1,5 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// Environment detection
+const isProduction = process.env.NODE_ENV === 'production';
+const isClient = typeof window !== 'undefined';
+
 // Check if API key is available and valid
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const isValidApiKey = apiKey && apiKey !== 'AIzaSyExample_YourGeminiApiKeyHere' && apiKey.startsWith('AIzaSy');
@@ -7,16 +11,42 @@ const isValidApiKey = apiKey && apiKey !== 'AIzaSyExample_YourGeminiApiKeyHere' 
 let genAI: GoogleGenerativeAI | null = null;
 let model: any = null;
 
+// Enhanced logging for debugging environment differences
+console.log('🔧 Gemini Configuration Debug:', {
+  environment: process.env.NODE_ENV,
+  isProduction,
+  isClient,
+  hasApiKey: !!apiKey,
+  apiKeyPreview: apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT_SET',
+  isValidApiKey
+});
+
 if (isValidApiKey) {
   genAI = new GoogleGenerativeAI(apiKey!);
   model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  console.log('✅ Gemini AI model initialized successfully');
+} else {
+  console.warn('⚠️ Gemini API key not configured - will use mock data');
 }
 
 export { model };
 
 export async function generatePrediction(patientData: unknown[]) {
   const totalPatients = Array.isArray(patientData) ? patientData.length : 0;
-  console.log('🔬 Gemini generatePrediction called with', totalPatients, 'patients');
+  const timestamp = new Date().toISOString();
+  
+  console.log(`🔬 [${timestamp}] Gemini generatePrediction called:`, {
+    environment: process.env.NODE_ENV,
+    isProduction,
+    isClient,
+    totalPatients,
+    hasValidApiKey: isValidApiKey,
+    dataStructure: {
+      isArray: Array.isArray(patientData),
+      length: patientData.length,
+      firstRecordKeys: patientData[0] ? Object.keys(patientData[0]) : 'No data'
+    }
+  });
   
   // Return mock data if API key is not valid
   if (!isValidApiKey) {

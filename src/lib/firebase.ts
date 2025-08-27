@@ -13,6 +13,18 @@ const firebaseConfig = {
   measurementId: "G-1BGS7GN3V3" // Your analytics measurement ID
 };
 
+// Debug Firebase configuration
+console.log('🔥 Firebase Configuration Debug:', {
+  environment: process.env.NODE_ENV,
+  isClient: typeof window !== 'undefined',
+  config: {
+    projectId: firebaseConfig.projectId,
+    authDomain: firebaseConfig.authDomain,
+    hasApiKey: !!firebaseConfig.apiKey && firebaseConfig.apiKey !== 'demo-api-key',
+    apiKeyPreview: firebaseConfig.apiKey.substring(0, 10) + '...'
+  }
+});
+
 // Initialize Firebase
 let app: FirebaseApp | null = null;
 let db: Firestore;
