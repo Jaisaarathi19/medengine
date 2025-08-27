@@ -12,10 +12,13 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@heroicons/react": "^2.0.18",
+    "firebase": "^10.7.1",
+    "framer-motion": "^10.16.16",
     "next": "15.5.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "recharts": "^2.12.7"
+    "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
