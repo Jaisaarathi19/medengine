@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { 
@@ -18,115 +18,262 @@ import Chatbot from '@/components/Chatbot';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { formatDate, formatTime } from '@/lib/utils';
-
-// Mock patient data
-const patientInfo = {
-  id: 'P001',
-  name: 'Alex Thompson',
-  age: 34,
-  gender: 'Male',
-  bloodType: 'A+',
-  allergies: ['Penicillin', 'Shellfish'],
-  emergencyContact: {
-    name: 'Sarah Thompson',
-    relationship: 'Spouse',
-    phone: '+1 (555) 123-4567'
-  }
-};
-
-const mockVitals = [
-  { date: '8/23', bloodPressure: 118, heartRate: 68, temperature: 98.4 },
-  { date: '8/24', bloodPressure: 122, heartRate: 72, temperature: 98.6 },
-  { date: '8/25', bloodPressure: 120, heartRate: 70, temperature: 98.5 },
-  { date: '8/26', bloodPressure: 125, heartRate: 74, temperature: 98.8 },
-  { date: '8/27', bloodPressure: 119, heartRate: 69, temperature: 98.3 }
-];
-
-const mockMedications = [
-  {
-    id: '1',
-    name: 'Lisinopril',
-    dosage: '10mg',
-    frequency: 'Once daily',
-    duration: '30 days',
-    prescribedBy: 'Dr. Smith',
-    status: 'active' as const,
-    nextDose: new Date('2025-08-27T20:00:00'),
-    notes: 'Take with food'
-  },
-  {
-    id: '2',
-    name: 'Metformin',
-    dosage: '500mg',
-    frequency: 'Twice daily',
-    duration: '90 days',
-    prescribedBy: 'Dr. Johnson',
-    status: 'active' as const,
-    nextDose: new Date('2025-08-27T18:30:00'),
-    notes: 'Take with meals'
-  }
-];
-
-const mockAppointments = [
-  {
-    id: '1',
-    doctor: 'Dr. Emily Smith',
-    specialty: 'Cardiology',
-    date: new Date('2025-08-30T10:00:00'),
-    type: 'Follow-up',
-    status: 'scheduled' as const,
-    location: 'Building A, Floor 2, Room 205'
-  },
-  {
-    id: '2',
-    doctor: 'Dr. Michael Johnson',
-    specialty: 'Internal Medicine',
-    date: new Date('2025-09-05T14:30:00'),
-    type: 'Check-up',
-    status: 'scheduled' as const,
-    location: 'Building B, Floor 1, Room 110'
-  }
-];
-
-const mockLabResults = [
-  {
-    id: '1',
-    test: 'Complete Blood Count',
-    date: new Date('2025-08-25'),
-    status: 'completed' as const,
-    results: 'Normal ranges',
-    orderedBy: 'Dr. Smith'
-  },
-  {
-    id: '2',
-    test: 'Lipid Panel',
-    date: new Date('2025-08-20'),
-    status: 'completed' as const,
-    results: 'Cholesterol slightly elevated',
-    orderedBy: 'Dr. Johnson'
-  }
-];
+import { getPatientAppointments } from '@/lib/firestore/appointments';
+import { getPatientVitals } from '@/lib/firestore/vitals';
+import { getPatientPrescriptions, getPatientLabResults } from '@/lib/firestore/patient-data';
+import { doc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function PatientDashboard() {
   const router = useRouter();
+  const { user, loading } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [patientData, setPatientData] = useState<any>(null);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [vitals, setVitals] = useState<any[]>([]);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [labResults, setLabResults] = useState<any[]>([]);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  
+  useEffect(() => {
+    if (!user) return;
+    
+    const unsubscribers: (() => void)[] = [];
+    
+    const setupRealtimeListeners = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Set up patient document listener
+        const patientRef = doc(db, 'patients', user.uid);
+        const unsubPatient = onSnapshot(patientRef, (doc) => {
+          if (doc.exists()) {
+            setPatientData(doc.data());
+          } else {
+            setPatientData({
+              name: user.displayName || 'Patient',
+              email: user.email,
+              age: 30,
+              bloodType: 'O+',
+              allergies: [],
+              emergencyContact: {
+                name: 'Emergency Contact',
+                phone: 'Not provided'
+              }
+            });
+          }
+        });
+        unsubscribers.push(unsubPatient);
+        
+        // Set up appointments listener
+        const appointmentsQuery = query(
+          collection(db, 'appointments'),
+          where('patientId', '==', user.uid)
+        );
+        const unsubAppointments = onSnapshot(appointmentsQuery, (snapshot) => {
+          const appointmentsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setAppointments(appointmentsData.sort((a: any, b: any) => 
+            new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime()
+          ));
+          setLastUpdate(new Date());
+        });
+        unsubscribers.push(unsubAppointments);
+        
+        // Set up prescriptions listeners for multiple collections
+        const prescriptionsQuery = query(
+          collection(db, 'prescriptions'),
+          where('patientId', '==', user.uid)
+        );
+        const medicationsQuery = query(
+          collection(db, 'medications'),
+          where('patientId', '==', user.uid)
+        );
+        
+        let prescriptionsData: any[] = [];
+        let medicationsData: any[] = [];
+        
+        const unsubPrescriptions = onSnapshot(prescriptionsQuery, (snapshot) => {
+          prescriptionsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          updatePrescriptions();
+        });
+        
+        const unsubMedications = onSnapshot(medicationsQuery, (snapshot) => {
+          medicationsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            patientId: doc.data().patientId,
+            medication: doc.data().medication || doc.data().name,
+            dosage: doc.data().dosage || doc.data().dose,
+            frequency: doc.data().frequency || doc.data().instructions,
+            duration: doc.data().duration || '30 days',
+            prescribedBy: doc.data().prescribedBy || doc.data().doctor,
+            status: doc.data().status || 'active',
+            createdAt: doc.data().createdAt,
+            notes: doc.data().notes
+          }));
+          updatePrescriptions();
+        });
+        
+        const updatePrescriptions = () => {
+          const allPrescriptions = [...prescriptionsData, ...medicationsData];
+          setPrescriptions(allPrescriptions.sort((a: any, b: any) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          ));
+          setLastUpdate(new Date());
+        };
+        
+        unsubscribers.push(unsubPrescriptions, unsubMedications);
+        
+        // Set up vitals listeners for multiple collections
+        const vitalSignsQuery = query(
+          collection(db, 'vital_signs'),
+          where('patient.id', '==', user.uid)
+        );
+        const vitalsQuery = query(
+          collection(db, 'vitals'),
+          where('patientId', '==', user.uid)
+        );
+        
+        let vitalSignsData: any[] = [];
+        let vitalsData: any[] = [];
+        
+        const unsubVitalSigns = onSnapshot(vitalSignsQuery, (snapshot) => {
+          vitalSignsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            patientId: doc.data().patient?.id || doc.data().patientId,
+            createdAt: doc.data().metadata?.createdAt || doc.data().createdAt
+          }));
+          updateVitals();
+        });
+        
+        const unsubVitalsCollection = onSnapshot(vitalsQuery, (snapshot) => {
+          vitalsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          updateVitals();
+        });
+        
+        const updateVitals = () => {
+          const allVitals = [...vitalSignsData, ...vitalsData];
+          setVitals(allVitals.sort((a: any, b: any) => {
+            const dateA = new Date(a.createdAt || a.metadata?.createdAt);
+            const dateB = new Date(b.createdAt || b.metadata?.createdAt);
+            return dateB.getTime() - dateA.getTime();
+          }).slice(0, 10));
+          setLastUpdate(new Date());
+        };
+        
+        unsubscribers.push(unsubVitalSigns, unsubVitalsCollection);
+        
+        // Set up lab results listener
+        const labResultsQuery = query(
+          collection(db, 'labResults'),
+          where('patientId', '==', user.uid)
+        );
+        const unsubLabResults = onSnapshot(labResultsQuery, (snapshot) => {
+          const labResultsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setLabResults(labResultsData.sort((a: any, b: any) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          ));
+          setLastUpdate(new Date());
+        });
+        unsubscribers.push(unsubLabResults);
+        
+        setIsLoading(false);
+        
+      } catch (err) {
+        console.error('Error setting up real-time listeners:', err);
+        setError('Failed to set up real-time data sync');
+        setIsLoading(false);
+      }
+    };
+    
+    setupRealtimeListeners();
+    
+    // Cleanup function
+    return () => {
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+    };
+  }, [user]);
 
-  const handleContactDoctor = (appointment: Record<string, unknown>) => {
-    toast(`Contacting ${appointment.doctor as string}...`);
+  if (isLoading || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading patient dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Get latest vital signs
+  const latestVitals = vitals.length > 0 ? vitals[0] : null;
+  
+  // Get upcoming appointments
+  const upcomingAppointments = appointments
+    .filter(apt => {
+      const appointmentDate = apt.date || apt.appointment?.date;
+      if (!appointmentDate) return false;
+      const date = new Date(appointmentDate);
+      return !isNaN(date.getTime()) && date >= new Date();
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.date || a.appointment?.date);
+      const dateB = new Date(b.date || b.appointment?.date);
+      return dateA.getTime() - dateB.getTime();
+    })
+    .slice(0, 3);
+
+  const handleContactDoctor = (appointment: any) => {
+    toast(`Contacting ${appointment.doctorName}...`);
   };
 
-  const handleDownloadReport = (report: Record<string, unknown>) => {
-    toast.success(`Downloading ${report.test as string} report...`);
+  const handleDownloadReport = (report: any) => {
+    toast.success(`Downloading ${report.test} report...`);
   };
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      toast.success('Logged out successfully');
       router.push('/');
+      setTimeout(async () => {
+        await signOut(auth);
+        toast.success('Logged out successfully');
+      }, 100);
     } catch (error: unknown) {
       toast.error('Error logging out');
+      router.push('/');
     }
   };
 
@@ -139,34 +286,35 @@ export default function PatientDashboard() {
     }
   };
 
+  // Real-time stats based on actual data
   const stats = [
     {
       title: 'Upcoming Appointments',
-      value: mockAppointments.length.toString(),
-      change: 'Next: Aug 30',
+      value: upcomingAppointments.length.toString(),
+      change: upcomingAppointments.length > 0 ? `Next: ${formatDate(upcomingAppointments[0].date || upcomingAppointments[0].appointment?.date)}` : 'None scheduled',
       icon: CalendarDaysIcon,
       color: 'bg-blue-500'
     },
     {
-      title: 'Active Medications',
-      value: mockMedications.filter(m => m.status === 'active').length.toString(),
-      change: 'All up to date',
+      title: 'Recent Vitals',
+      value: vitals.length.toString(),
+      change: latestVitals ? `Latest: ${formatDate(latestVitals.createdAt || latestVitals.metadata?.createdAt)}` : 'No data',
       icon: HeartIcon,
       color: 'bg-green-500'
     },
     {
-      title: 'Lab Reports',
-      value: mockLabResults.length.toString(),
-      change: 'Latest: Aug 25',
+      title: 'Heart Rate',
+      value: latestVitals?.heartRate ? `${latestVitals.heartRate} bpm` : 'N/A',
+      change: latestVitals?.heartRate > 100 ? 'Above normal' : 'Normal range',
       icon: DocumentTextIcon,
       color: 'bg-purple-500'
     },
     {
-      title: 'Health Score',
-      value: '8.5/10',
-      change: 'Excellent',
+      title: 'Blood Pressure',
+      value: latestVitals?.bloodPressure ? latestVitals.bloodPressure : 'N/A',
+      change: latestVitals ? 'Within limits' : 'No data',
       icon: HeartIcon,
-      color: 'bg-green-500'
+      color: 'bg-red-500'
     }
   ];
 
@@ -220,10 +368,12 @@ export default function PatientDashboard() {
                 className="bg-gradient-to-br from-purple-500 to-purple-600 p-3 rounded-xl shadow-lg"
                 whileHover={{ 
                   scale: 1.1, 
-                  rotate: [0, -10, 10, 0],
-                  boxShadow: "0 10px 25px -5px rgba(147, 51, 234, 0.4)"
+                  rotate: [0, -10, 10, 0]
                 }}
                 transition={{ duration: 0.3 }}
+                style={{ 
+                  boxShadow: "0 10px 25px -5px rgba(147, 51, 234, 0.4)" 
+                }}
               >
                 <UserGroupIcon className="h-8 w-8 text-white" />
               </motion.div>
@@ -234,7 +384,7 @@ export default function PatientDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4, duration: 0.6 }}
                 >
-                  Welcome, {patientInfo.name}!
+                  Welcome, {patientData?.name || user?.displayName || 'Patient'}!
                 </motion.h1>
                 <motion.p 
                   className="text-gray-600 font-medium"
@@ -252,6 +402,13 @@ export default function PatientDashboard() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.6 }}
             >
+              {/* Real-time Status Indicator */}
+              <div className="flex items-center space-x-2 px-3 py-1 bg-green-100 border border-green-200 rounded-full">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-green-700 font-medium">
+                  Live • Updated {lastUpdate.toLocaleTimeString()}
+                </span>
+              </div>
               <Link
                 href="/book-appointment"
                 className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
@@ -296,7 +453,9 @@ export default function PatientDashboard() {
               }}
               whileHover={{ 
                 scale: 1.05, 
-                y: -5,
+                y: -5
+              }}
+              style={{
                 boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
               }}
               className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/50 cursor-pointer group"
@@ -365,8 +524,10 @@ export default function PatientDashboard() {
             <motion.div 
               className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 overflow-hidden"
               whileHover={{ 
-                scale: 1.02, 
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)" 
+                scale: 1.02
+              }}
+              style={{
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)"
               }}
               transition={{ type: "spring", stiffness: 300 }}
             >
@@ -397,7 +558,7 @@ export default function PatientDashboard() {
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.6, delay: 1.2 }}
                 >
-                  {mockMedications.map((medication, index) => (
+                  {prescriptions.length > 0 ? prescriptions.map((medication: any, index: number) => (
                     <motion.div
                       key={medication.id}
                       className="border border-gray-200/50 rounded-xl p-4 bg-gradient-to-r from-white to-gray-50/50 hover:shadow-lg transition-all duration-300"
@@ -406,13 +567,15 @@ export default function PatientDashboard() {
                       transition={{ delay: 1.3 + index * 0.1, duration: 0.5 }}
                       whileHover={{ 
                         scale: 1.02, 
-                        x: 5,
+                        x: 5
+                      }}
+                      style={{
                         boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)"
                       }}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <h4 className="font-semibold text-gray-900">{medication.name}</h4>
+                          <h4 className="font-semibold text-gray-900">{medication.medication}</h4>
                           <p className="text-sm text-gray-600">
                             {medication.dosage} • {medication.frequency}
                           </p>
@@ -425,24 +588,24 @@ export default function PatientDashboard() {
                         </span>
                       </div>
                       
-                      {medication.nextDose && (
+                      {medication.notes && (
                         <div className="bg-blue-50 p-3 rounded-lg mb-3">
                           <div className="flex items-center space-x-2">
                             <BellIcon className="h-4 w-4 text-blue-600" />
                             <span className="text-sm text-blue-900 font-medium">
-                              Next dose: {formatDate(medication.nextDose)}
+                              Notes: {medication.notes}
                             </span>
                           </div>
                         </div>
                       )}
                       
-                      {medication.notes && (
-                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                          <strong>Note:</strong> {medication.notes}
-                        </p>
-                      )}
                     </motion.div>
-                  ))}
+                  )) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <DocumentTextIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>No prescriptions found</p>
+                    </div>
+                  )}
                 </motion.div>
               </div>
             </motion.div>
@@ -470,18 +633,20 @@ export default function PatientDashboard() {
                   
                   {/* Chart */}
                   <div className="grid grid-cols-5 gap-4 bg-gray-50 p-4 rounded-lg">
-                    {mockVitals.map((vital, index) => (
+                    {vitals.length > 0 ? vitals.slice(0, 5).map((vital: any, index: number) => (
                       <div key={index} className="text-center">
-                        <div className="text-xs text-gray-500 mb-2">{vital.date}</div>
+                        <div className="text-xs text-gray-500 mb-2">
+                          {formatDate(vital.createdAt || vital.metadata?.createdAt).substring(0, 5)}
+                        </div>
                         <div className="space-y-2 flex flex-col items-center">
                           {/* Blood Pressure Bar */}
                           <div className="w-6 bg-gray-200 rounded-full overflow-hidden">
                             <motion.div 
                               className="bg-purple-500 rounded-full"
                               initial={{ height: 0 }}
-                              animate={{ height: `${(vital.bloodPressure / 140) * 80}px` }}
+                              animate={{ height: `${((vital.bloodPressure ? parseInt(vital.bloodPressure.split('/')[0]) : 120) / 140) * 80}px` }}
                               transition={{ delay: index * 0.1, duration: 0.6 }}
-                              title={`BP: ${vital.bloodPressure}`}
+                              title={`BP: ${vital.bloodPressure || 'N/A'}`}
                             />
                           </div>
                           
@@ -490,43 +655,52 @@ export default function PatientDashboard() {
                             <motion.div 
                               className="bg-red-500 rounded-full"
                               initial={{ height: 0 }}
-                              animate={{ height: `${(vital.heartRate / 100) * 60}px` }}
+                              animate={{ height: `${((vital.heartRate || 70) / 100) * 60}px` }}
                               transition={{ delay: index * 0.1 + 0.2, duration: 0.6 }}
-                              title={`HR: ${vital.heartRate}`}
+                              title={`HR: ${vital.heartRate || 'N/A'}`}
                             />
                           </div>
                           
                           {/* Values */}
                           <div className="text-xs space-y-1">
-                            <div className="text-purple-600 font-semibold">{vital.bloodPressure}</div>
-                            <div className="text-red-600 font-semibold">{vital.heartRate}</div>
+                            <div className="text-purple-600 font-semibold">
+                              {vital.bloodPressure ? vital.bloodPressure.split('/')[0] : 'N/A'}
+                            </div>
+                            <div className="text-red-600 font-semibold">{vital.heartRate || 'N/A'}</div>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <HeartIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p>No vital signs recorded yet</p>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Latest Values */}
-                  <div className="grid grid-cols-3 gap-4 mt-4">
-                    <div className="bg-white p-3 rounded-lg border">
-                      <div className="text-xs text-gray-500">Latest BP</div>
-                      <div className="text-lg font-bold text-purple-600">
-                        {mockVitals[mockVitals.length - 1].bloodPressure} mmHg
+                  {latestVitals && (
+                    <div className="grid grid-cols-3 gap-4 mt-4">
+                      <div className="bg-white p-3 rounded-lg border">
+                        <div className="text-xs text-gray-500">Latest BP</div>
+                        <div className="text-lg font-bold text-purple-600">
+                          {latestVitals.bloodPressure || 'N/A'}
+                        </div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg border">
+                        <div className="text-xs text-gray-500">Latest HR</div>
+                        <div className="text-lg font-bold text-red-600">
+                          {latestVitals.heartRate ? `${latestVitals.heartRate} BPM` : 'N/A'}
+                        </div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg border">
+                        <div className="text-xs text-gray-500">Temperature</div>
+                        <div className="text-lg font-bold text-blue-600">
+                          {latestVitals.temperature ? `${latestVitals.temperature}°F` : 'N/A'}
+                        </div>
                       </div>
                     </div>
-                    <div className="bg-white p-3 rounded-lg border">
-                      <div className="text-xs text-gray-500">Latest HR</div>
-                      <div className="text-lg font-bold text-red-600">
-                        {mockVitals[mockVitals.length - 1].heartRate} BPM
-                      </div>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border">
-                      <div className="text-xs text-gray-500">Temperature</div>
-                      <div className="text-lg font-bold text-blue-600">
-                        {mockVitals[mockVitals.length - 1].temperature}°F
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -546,23 +720,27 @@ export default function PatientDashboard() {
               </div>
               <div className="p-6">
                 <div className="space-y-4">
-                  {mockAppointments.map((appointment) => (
+                  {upcomingAppointments.length > 0 ? upcomingAppointments.map((appointment: any) => (
                     <div key={appointment.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="mb-3">
-                        <h4 className="font-semibold text-gray-900">{appointment.doctor}</h4>
-                        <p className="text-sm text-gray-600">{appointment.specialty} • {appointment.type}</p>
+                        <h4 className="font-semibold text-gray-900">
+                          {appointment.doctorName || appointment.appointment?.doctor || 'Doctor'}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {appointment.specialty || appointment.appointment?.department || 'General'} • {appointment.type || appointment.appointment?.type || 'Appointment'}
+                        </p>
                       </div>
                       
                       <div className="space-y-2 text-sm text-gray-600 mb-3">
                         <div className="flex items-center space-x-2">
                           <CalendarDaysIcon className="h-4 w-4" />
-                          <span>{formatDate(appointment.date)}</span>
+                          <span>{formatDate(appointment.date || appointment.appointment?.date)}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <ClockIcon className="h-4 w-4" />
-                          <span>{formatTime(appointment.date)}</span>
+                          <span>{formatTime(appointment.date || appointment.appointment?.date)}</span>
                         </div>
-                        <p className="text-xs">{appointment.location}</p>
+                        <p className="text-xs">{appointment.location || appointment.appointment?.location || 'Location TBD'}</p>
                       </div>
 
                       <button
@@ -573,62 +751,12 @@ export default function PatientDashboard() {
                         <span>Contact Doctor</span>
                       </button>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Lab Reports */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Lab Reports</h3>
-              </div>
-              <div className="p-6">
-                <div className="space-y-3">
-                  {mockLabResults.map((report) => (
-                    <div key={report.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{report.test}</p>
-                        <p className="text-sm text-gray-600">{formatDate(report.date)}</p>
-                        <p className="text-xs text-gray-500">{report.results}</p>
-                      </div>
-                      <button
-                        onClick={() => handleDownloadReport(report)}
-                        className="p-2 text-purple-600 hover:text-purple-800 transition-colors"
-                      >
-                        <ArrowDownTrayIcon className="h-5 w-5" />
-                      </button>
+                  )) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <CalendarDaysIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>No upcoming appointments</p>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Patient Information */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Patient Information</h3>
-              </div>
-              <div className="p-6">
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-gray-600">Age</p>
-                    <p className="font-medium text-gray-900">{patientInfo.age} years</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Blood Type</p>
-                    <p className="font-medium text-gray-900">{patientInfo.bloodType}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Allergies</p>
-                    <p className="font-medium text-gray-900">{patientInfo.allergies.join(', ')}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Emergency Contact</p>
-                    <p className="font-medium text-gray-900">{patientInfo.emergencyContact.name}</p>
-                    <p className="text-sm text-gray-600">{patientInfo.emergencyContact.relationship}</p>
-                    <p className="text-sm text-gray-600">{patientInfo.emergencyContact.phone}</p>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

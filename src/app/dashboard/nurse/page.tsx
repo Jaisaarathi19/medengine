@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { 
@@ -10,9 +10,14 @@ import {
   BellIcon,
   HeartIcon,
   UserPlusIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
+import Chatbot from '@/components/Chatbot';
+import HighRiskPatientsWithFilters from '@/components/HighRiskPatientsWithFilters';
+import { getHighRiskPatientStats } from '@/lib/firestore/high-risk-patients';
+import { getAllDashboardStats, DashboardStats } from '@/lib/firestore/dashboard-stats';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -75,6 +80,58 @@ const mockMedications = [
 
 export default function NurseDashboard() {
   const router = useRouter();
+  
+  // Dashboard statistics state
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    totalPatients: 0,
+    totalPatientsChange: 'Loading...',
+    todayAppointments: 0,
+    appointmentsChange: 'Loading...',
+    highRiskPatients: 0,
+    highRiskChange: 'Loading...',
+    averageRecovery: 0,
+    recoveryChange: 'Loading...'
+  });
+  
+  // High-risk patient statistics (for detailed breakdown)
+  const [highRiskStats, setHighRiskStats] = useState({
+    critical: 0,
+    high: 0,
+    newAlerts: 0
+  });
+  
+  // Loading states
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Load real-time dashboard data
+  useEffect(() => {
+    const loadAllData = async () => {
+      try {
+        setStatsLoading(true);
+        
+        // Load dashboard stats and high-risk stats
+        const [allStats, detailedHighRisk] = await Promise.all([
+          getAllDashboardStats(),
+          getHighRiskPatientStats()
+        ]);
+        
+        setDashboardStats(allStats);
+        setHighRiskStats(detailedHighRisk);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        toast.error('Failed to load dashboard data');
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    loadAllData();
+    
+    // Refresh data every 60 seconds
+    const interval = setInterval(loadAllData, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const [showShiftBooking, setShowShiftBooking] = useState(false);
 
   const handleMedicationAdministered = (medication: any, patient: any) => {
@@ -83,11 +140,18 @@ export default function NurseDashboard() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      toast.success('Logged out successfully');
+      // Navigate to home page first, before signing out
       router.push('/');
+      
+      // Then sign out after a small delay to ensure navigation happens first
+      setTimeout(async () => {
+        await signOut(auth);
+        toast.success('Logged out successfully');
+      }, 100);
     } catch (error: any) {
       toast.error('Error logging out');
+      // Fallback: ensure we still go to home page even if logout fails
+      router.push('/');
     }
   };
 
@@ -110,32 +174,44 @@ export default function NurseDashboard() {
 
   const stats = [
     {
-      title: 'Assigned Patients',
-      value: mockPatients.length.toString(),
-      change: 'Current shift',
+      title: 'Total Patients',
+      value: statsLoading ? '...' : dashboardStats.totalPatients.toString(),
+      change: statsLoading ? 'Loading...' : dashboardStats.totalPatientsChange,
       icon: UsersIcon,
       color: 'bg-blue-500'
     },
     {
-      title: 'Medications Due',
-      value: '2',
-      change: 'Next 2 hours',
-      icon: BellIcon,
-      color: 'bg-orange-500'
-    },
-    {
-      title: 'Vitals Updates',
-      value: '3',
-      change: 'Completed today',
-      icon: HeartIcon,
+      title: 'Today\'s Care Tasks',
+      value: statsLoading ? '...' : dashboardStats.todayAppointments.toString(),
+      change: statsLoading ? 'Loading...' : dashboardStats.appointmentsChange,
+      icon: ClipboardDocumentListIcon,
       color: 'bg-green-500'
     },
     {
-      title: 'Next Shift',
-      value: '14:00',
-      change: 'Emergency Dept',
-      icon: ClockIcon,
-      color: 'bg-purple-500'
+      title: 'High Risk Patients',
+      value: statsLoading ? '...' : dashboardStats.highRiskPatients.toString(),
+      change: statsLoading ? 'Loading...' : dashboardStats.highRiskChange,
+      icon: BellIcon,
+      color: statsLoading 
+        ? 'bg-gray-400'
+        : highRiskStats.newAlerts > 0 
+          ? 'bg-red-500' 
+          : dashboardStats.highRiskPatients > 0 
+            ? 'bg-red-500' 
+            : 'bg-green-500'
+    },
+    {
+      title: 'Recovery Rate',
+      value: statsLoading ? '...' : `${dashboardStats.averageRecovery}%`,
+      change: statsLoading ? 'Loading...' : dashboardStats.recoveryChange,
+      icon: HeartIcon,
+      color: statsLoading 
+        ? 'bg-gray-400'
+        : dashboardStats.averageRecovery >= 80 
+          ? 'bg-green-500'
+          : dashboardStats.averageRecovery >= 60
+            ? 'bg-yellow-500'
+            : 'bg-red-500'
     }
   ];
 
@@ -236,17 +312,6 @@ export default function NurseDashboard() {
               transition={{ delay: 0.4, duration: 0.6 }}
             >
               <motion.button
-                onClick={() => setShowShiftBooking(true)}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-                whileHover={{ 
-                  scale: 1.05,
-                  boxShadow: "0 15px 30px -5px rgba(147, 51, 234, 0.4)"
-                }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Book Shift
-              </motion.button>
-              <motion.button
                 onClick={handleLogout}
                 className="px-4 py-2 text-red-600 hover:text-red-700 font-medium transition-colors border border-red-200 hover:border-red-300 rounded-xl hover:bg-red-50"
                 whileHover={{ scale: 1.05 }}
@@ -269,15 +334,33 @@ export default function NurseDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"
+              className={`bg-white p-6 rounded-xl shadow-sm border ${
+                stat.title === 'High Risk Patients' && dashboardStats.highRiskPatients > 0
+                  ? 'border-red-200 ring-2 ring-red-100'
+                  : 'border-gray-200'
+              }`}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                  <p className="text-sm text-gray-500 mt-2">{stat.change}</p>
+                  <p className={`text-sm mt-2 ${
+                    stat.title === 'High Risk Patients' && dashboardStats.highRiskPatients > 0
+                      ? 'text-red-600 font-medium'
+                      : stat.title === 'Recovery Rate' && dashboardStats.averageRecovery >= 80
+                        ? 'text-green-600 font-medium'
+                        : stat.title === 'Recovery Rate' && dashboardStats.averageRecovery < 60
+                          ? 'text-red-600 font-medium'
+                          : 'text-gray-500'
+                  }`}>
+                    {stat.change}
+                  </p>
                 </div>
-                <div className={`${stat.color} p-3 rounded-xl`}>
+                <div className={`${stat.color} p-3 rounded-xl ${
+                  stat.title === 'High Risk Patients' && highRiskStats.newAlerts > 0
+                    ? 'animate-pulse'
+                    : ''
+                }`}>
                   <stat.icon className="h-6 w-6 text-white" />
                 </div>
               </div>
@@ -292,29 +375,7 @@ export default function NurseDashboard() {
           className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Link
-              href="/create-patient"
-              className="flex items-center justify-center p-4 bg-blue-50 border-2 border-blue-200 rounded-lg hover:bg-blue-100 transition-colors group"
-            >
-              <div className="text-center">
-                <UserPlusIcon className="h-8 w-8 text-blue-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                <p className="text-sm font-medium text-blue-900">Add Patient</p>
-                <p className="text-xs text-blue-700">Register new patient</p>
-              </div>
-            </Link>
-            
-            <Link
-              href="/book-appointment"
-              className="flex items-center justify-center p-4 bg-green-50 border-2 border-green-200 rounded-lg hover:bg-green-100 transition-colors group"
-            >
-              <div className="text-center">
-                <CalendarDaysIcon className="h-8 w-8 text-green-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                <p className="text-sm font-medium text-green-900">Schedule Visit</p>
-                <p className="text-xs text-green-700">Book appointment</p>
-              </div>
-            </Link>
-            
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
             <Link
               href="/upload-vitals"
               className="flex items-center justify-center p-4 bg-pink-50 border-2 border-pink-200 rounded-lg hover:bg-pink-100 transition-colors group"
@@ -325,121 +386,19 @@ export default function NurseDashboard() {
                 <p className="text-xs text-pink-700">Upload vital signs</p>
               </div>
             </Link>
-            
-            <Link
-              href="/create-prescription"
-              className="flex items-center justify-center p-4 bg-purple-50 border-2 border-purple-200 rounded-lg hover:bg-purple-100 transition-colors group"
-            >
-              <div className="text-center">
-                <ClipboardDocumentListIcon className="h-8 w-8 text-purple-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                <p className="text-sm font-medium text-purple-900">Create Prescription</p>
-                <p className="text-xs text-purple-700">Add medication order</p>
-              </div>
-            </Link>
           </div>
         </motion.div>
 
         {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Patient List */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Assigned Patients</h3>
-              <p className="text-gray-600 mt-1">Patients under your care</p>
-            </div>
-            <div className="p-6">
-              <div className="space-y-6">
-                {mockPatients.map((patient) => (
-                  <div
-                    key={patient.id}
-                    className="border border-gray-200 rounded-lg p-4"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{patient.name}</h4>
-                        <p className="text-sm text-gray-600">Room {patient.room} • {patient.condition}</p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(patient.priority)}`}>
-                          {patient.priority} Priority
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getVitalsStatusColor(patient.vitalsStatus)}`}>
-                          {patient.vitalsStatus}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-600">
-                        Next medication: <span className="font-medium">{patient.nextMedication}</span>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Link 
-                          href="/book-appointment"
-                          className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded hover:bg-blue-200 transition-colors"
-                        >
-                          Book Appointment
-                        </Link>
-                        <Link 
-                          href="/upload-vitals"
-                          className="px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded hover:bg-green-200 transition-colors"
-                        >
-                          Update Vitals
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
 
-          {/* Medication Schedule */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Medication Schedule</h3>
-              <p className="text-gray-600 mt-1">Upcoming medications</p>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {mockMedications.map((med) => (
-                  <div
-                    key={med.id}
-                    className={`p-4 rounded-lg border-2 ${
-                      med.status === 'overdue' 
-                        ? 'border-red-200 bg-red-50' 
-                        : 'border-gray-200 bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium text-gray-900">{med.patientName}</div>
-                      <div className={`text-xs px-2 py-1 rounded ${
-                        med.status === 'overdue' 
-                          ? 'bg-red-100 text-red-800' 
-                          : med.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {med.status}
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-600 mb-2">{med.medication}</div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium">{med.time}</div>
-                      <button 
-                        onClick={() => handleMedicationAdministered(med, { name: med.patientName })}
-                        className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors"
-                      >
-                        Administer
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        {/* High-Risk Patients Section */}
+        <div className="mt-8">
+          <HighRiskPatientsWithFilters />
         </div>
       </main>
+
+      {/* AI Chatbot */}
+      <Chatbot />
     </div>
     </ProtectedRoute>
   );

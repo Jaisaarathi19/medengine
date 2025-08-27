@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { 
@@ -13,162 +13,156 @@ import {
   ClockIcon,
   ClipboardDocumentIcon
 } from '@heroicons/react/24/outline';
-import { generatePatientSummary } from '@/lib/gemini';
 import { toast } from 'react-hot-toast';
 import Chatbot from '@/components/Chatbot';
+import HighRiskPatientsWithFilters from '@/components/HighRiskPatientsWithFilters';
+import { getHighRiskPatientStats } from '@/lib/firestore/high-risk-patients';
+import { getAllDashboardStats, DashboardStats } from '@/lib/firestore/dashboard-stats';
+import { getTodayAppointments, TodayAppointment } from '@/lib/firestore/appointments';
+import { getWeeklyVitalsTrend } from '@/lib/firestore/vitals';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { formatDate } from '@/lib/utils';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
-// Mock data
-const mockPatients = [
-  {
-    id: '1',
-    name: 'Sarah Johnson',
-    age: 45,
-    condition: 'Hypertension',
-    riskLevel: 'Medium' as const,
-    lastVisit: new Date('2025-08-25'),
-    vitals: { bp: '140/90', hr: 78, temp: 98.6 }
-  },
-  {
-    id: '2',
-    name: 'Michael Chen',
-    age: 67,
-    condition: 'Diabetes',
-    riskLevel: 'High' as const,
-    lastVisit: new Date('2025-08-26'),
-    vitals: { bp: '160/100', hr: 85, temp: 99.2 }
-  },
-  {
-    id: '3',
-    name: 'Emily Davis',
-    age: 32,
-    condition: 'Asthma',
-    riskLevel: 'Low' as const,
-    lastVisit: new Date('2025-08-27'),
-    vitals: { bp: '120/80', hr: 72, temp: 98.4 }
-  }
-];
-
-const mockAppointments = [
-  { id: '1', patient: 'Sarah Johnson', time: '09:00 AM', type: 'Follow-up' },
-  { id: '2', patient: 'Michael Chen', time: '10:30 AM', type: 'Check-up' },
-  { id: '3', patient: 'Emily Davis', time: '02:00 PM', type: 'Consultation' },
-  { id: '4', patient: 'Robert Wilson', time: '03:30 PM', type: 'Treatment' }
-];
-
-const vitalsTrend = [
-  { name: 'Mon', bloodPressure: 120, heartRate: 72 },
-  { name: 'Tue', bloodPressure: 125, heartRate: 75 },
-  { name: 'Wed', bloodPressure: 130, heartRate: 78 },
-  { name: 'Thu', bloodPressure: 135, heartRate: 80 },
-  { name: 'Fri', bloodPressure: 140, heartRate: 85 },
-  { name: 'Sat', bloodPressure: 138, heartRate: 82 },
-  { name: 'Sun', bloodPressure: 142, heartRate: 88 }
-];
-
 export default function DoctorDashboard() {
-  const [selectedPatient, setSelectedPatient] = useState<Record<string, unknown> | null>(null);
-  const [patientSummary, setPatientSummary] = useState<string>('');
-  const [loadingSummary, setLoadingSummary] = useState(false);
-  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
-  const [prescriptionData, setPrescriptionData] = useState({
-    medication: '',
-    dosage: '',
-    frequency: '',
-    duration: '',
-    notes: ''
-  });
   const router = useRouter();
+  
+  // Real-time appointments state
+  const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
+  
+  // Real-time vitals trend state
+  const [vitalsTrend, setVitalsTrend] = useState([
+    { name: 'Sun', bloodPressure: 120, heartRate: 72 },
+    { name: 'Mon', bloodPressure: 125, heartRate: 75 },
+    { name: 'Tue', bloodPressure: 130, heartRate: 78 },
+    { name: 'Wed', bloodPressure: 135, heartRate: 80 },
+    { name: 'Thu', bloodPressure: 140, heartRate: 85 },
+    { name: 'Fri', bloodPressure: 138, heartRate: 82 },
+    { name: 'Sat', bloodPressure: 142, heartRate: 88 }
+  ]);
+  const [vitalsLoading, setVitalsLoading] = useState(true);
+  
+  // Dashboard statistics
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    totalPatients: 0,
+    totalPatientsChange: 'Loading...',
+    todayAppointments: 0,
+    appointmentsChange: 'Loading...',
+    highRiskPatients: 0,
+    highRiskChange: 'Loading...',
+    averageRecovery: 0,
+    recoveryChange: 'Loading...'
+  });
+  
+  // High-risk patient statistics (for detailed breakdown)
+  const [highRiskStats, setHighRiskStats] = useState({
+    total: 0,
+    critical: 0,
+    high: 0,
+    newAlerts: 0,
+    acknowledged: 0,
+    resolved: 0
+  });
+  
+  const [statsLoading, setStatsLoading] = useState(true);
 
-  const handleGenerateSummary = async (patient: Record<string, unknown>) => {
-    setLoadingSummary(true);
-    setSelectedPatient(patient);
+  // Load all dashboard statistics
+  useEffect(() => {
+    const loadAllData = async () => {
+      try {
+        setStatsLoading(true);
+        setAppointmentsLoading(true);
+        setVitalsLoading(true);
+        
+        // Load dashboard stats, high-risk stats, appointments, and vitals trend
+        const [allStats, detailedHighRisk, appointments, weeklyVitals] = await Promise.all([
+          getAllDashboardStats(),
+          getHighRiskPatientStats(),
+          getTodayAppointments(),
+          getWeeklyVitalsTrend()
+        ]);
+        
+        setDashboardStats(allStats);
+        setHighRiskStats(detailedHighRisk);
+        setTodayAppointments(appointments);
+        setVitalsTrend(weeklyVitals);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        toast.error('Failed to load dashboard data');
+      } finally {
+        setStatsLoading(false);
+        setAppointmentsLoading(false);
+        setVitalsLoading(false);
+      }
+    };
+
+    loadAllData();
     
-    try {
-      const summary = await generatePatientSummary(patient);
-      setPatientSummary(summary);
-    } catch (error: unknown) {
-      toast.error('Error generating patient summary');
-      setPatientSummary('Unable to generate summary at this time.');
-    } finally {
-      setLoadingSummary(false);
-    }
-  };
-
-  const handlePrescribe = (patient: Record<string, unknown>) => {
-    setSelectedPatient(patient);
-    setShowPrescriptionForm(true);
-  };
-
-  const handleSubmitPrescription = () => {
-    if (!prescriptionData.medication || !prescriptionData.dosage) {
-      toast.error('Please fill in medication and dosage');
-      return;
-    }
-
-    // In a real app, this would save to the database
-    toast.success(`Prescription added for ${(selectedPatient as Record<string, unknown>)?.name as string}`);
-    setShowPrescriptionForm(false);
-    setPrescriptionData({
-      medication: '',
-      dosage: '',
-      frequency: '',
-      duration: '',
-      notes: ''
-    });
-  };
+    // Refresh data every 60 seconds
+    const interval = setInterval(loadAllData, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      toast.success('Logged out successfully');
+      // Navigate to home page first, before signing out
       router.push('/');
+      
+      // Then sign out after a small delay to ensure navigation happens first
+      setTimeout(async () => {
+        await signOut(auth);
+        toast.success('Logged out successfully');
+      }, 100);
     } catch (error: unknown) {
       toast.error('Error logging out');
-    }
-  };
-
-  const getRiskColor = (risk: string) => {
-    switch (risk) {
-      case 'High': return 'bg-red-100 text-red-800';
-      case 'Medium': return 'bg-yellow-100 text-yellow-800';
-      case 'Low': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      // Fallback: ensure we still go to home page even if logout fails
+      router.push('/');
     }
   };
 
   const stats = [
     {
       title: 'Total Patients',
-      value: '24',
-      change: '+2 this week',
+      value: statsLoading ? '...' : dashboardStats.totalPatients.toString(),
+      change: statsLoading ? 'Loading...' : dashboardStats.totalPatientsChange,
       icon: UsersIcon,
       color: 'bg-blue-500'
     },
     {
       title: 'Today\'s Appointments',
-      value: '8',
-      change: '2 upcoming',
+      value: statsLoading ? '...' : dashboardStats.todayAppointments.toString(),
+      change: statsLoading ? 'Loading...' : dashboardStats.appointmentsChange,
       icon: CalendarDaysIcon,
       color: 'bg-green-500'
     },
     {
       title: 'High Risk Patients',
-      value: '3',
-      change: 'Needs attention',
+      value: statsLoading ? '...' : dashboardStats.highRiskPatients.toString(),
+      change: statsLoading ? 'Loading...' : dashboardStats.highRiskChange,
       icon: BellIcon,
-      color: 'bg-red-500'
+      color: statsLoading 
+        ? 'bg-gray-400'
+        : highRiskStats.newAlerts > 0 
+          ? 'bg-red-500' 
+          : dashboardStats.highRiskPatients > 0 
+            ? 'bg-red-500' 
+            : 'bg-green-500'
     },
     {
-      title: 'Average Recovery',
-      value: '85%',
-      change: '+5% this month',
+      title: 'Recovery Rate',
+      value: statsLoading ? '...' : `${dashboardStats.averageRecovery}%`,
+      change: statsLoading ? 'Loading...' : dashboardStats.recoveryChange,
       icon: ChartBarIcon,
-      color: 'bg-purple-500'
+      color: statsLoading 
+        ? 'bg-gray-400'
+        : dashboardStats.averageRecovery >= 80 
+          ? 'bg-green-500'
+          : dashboardStats.averageRecovery >= 60
+            ? 'bg-yellow-500'
+            : 'bg-red-500'
     }
   ];
 
@@ -292,15 +286,33 @@ export default function DoctorDashboard() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"
+              className={`bg-white p-6 rounded-xl shadow-sm border ${
+                stat.title === 'High Risk Patients' && dashboardStats.highRiskPatients > 0
+                  ? 'border-red-200 ring-2 ring-red-100'
+                  : 'border-gray-200'
+              }`}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                  <p className="text-sm text-gray-500 mt-2">{stat.change}</p>
+                  <p className={`text-sm mt-2 ${
+                    stat.title === 'High Risk Patients' && dashboardStats.highRiskPatients > 0
+                      ? 'text-red-600 font-medium'
+                      : stat.title === 'Recovery Rate' && dashboardStats.averageRecovery >= 80
+                        ? 'text-green-600 font-medium'
+                        : stat.title === 'Recovery Rate' && dashboardStats.averageRecovery < 60
+                          ? 'text-red-600 font-medium'
+                          : 'text-gray-500'
+                  }`}>
+                    {stat.change}
+                  </p>
                 </div>
-                <div className={`${stat.color} p-3 rounded-xl`}>
+                <div className={`${stat.color} p-3 rounded-xl ${
+                  stat.title === 'High Risk Patients' && highRiskStats.newAlerts > 0
+                    ? 'animate-pulse'
+                    : ''
+                }`}>
                   <stat.icon className="h-6 w-6 text-white" />
                 </div>
               </div>
@@ -315,7 +327,7 @@ export default function DoctorDashboard() {
           className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Link
               href="/create-patient"
               className="flex items-center justify-center p-4 bg-blue-50 border-2 border-blue-200 rounded-lg hover:bg-blue-100 transition-colors group"
@@ -324,17 +336,6 @@ export default function DoctorDashboard() {
                 <UserPlusIcon className="h-8 w-8 text-blue-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
                 <p className="text-sm font-medium text-blue-900">Add Patient</p>
                 <p className="text-xs text-blue-700">Register new patient</p>
-              </div>
-            </Link>
-            
-            <Link
-              href="/book-appointment"
-              className="flex items-center justify-center p-4 bg-green-50 border-2 border-green-200 rounded-lg hover:bg-green-100 transition-colors group"
-            >
-              <div className="text-center">
-                <CalendarDaysIcon className="h-8 w-8 text-green-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                <p className="text-sm font-medium text-green-900">Schedule Visit</p>
-                <p className="text-xs text-green-700">Book appointment</p>
               </div>
             </Link>
             
@@ -359,89 +360,73 @@ export default function DoctorDashboard() {
                 <p className="text-xs text-pink-700">Upload vital signs</p>
               </div>
             </Link>
-            
-            <button className="flex items-center justify-center p-4 bg-purple-50 border-2 border-purple-200 rounded-lg hover:bg-purple-100 transition-colors group">
-              <div className="text-center">
-                <ChartBarIcon className="h-8 w-8 text-purple-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                <p className="text-sm font-medium text-purple-900">View Reports</p>
-                <p className="text-xs text-purple-700">Medical analytics</p>
-              </div>
-            </button>
           </div>
         </motion.div>
 
         {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Patient List */}
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">My Patients</h3>
-              <p className="text-gray-600 mt-1">Manage your assigned patients</p>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                {mockPatients.map((patient) => (
-                  <div
-                    key={patient.id}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{patient.name}</h4>
-                        <p className="text-sm text-gray-600">{patient.age} years old • {patient.condition}</p>
-                      </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRiskColor(patient.riskLevel)}`}>
-                        {patient.riskLevel} Risk
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                      <span>Last visit: {formatDate(patient.lastVisit)}</span>
-                      <span>BP: {patient.vitals.bp} | HR: {patient.vitals.hr}</span>
-                    </div>
-
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleGenerateSummary(patient)}
-                        className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                      >
-                        AI Summary
-                      </button>
-                      <button
-                        onClick={() => handlePrescribe(patient)}
-                        className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-                      >
-                        Prescribe
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 gap-8">
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Today's Appointments */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
               <div className="p-6 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">Today&apos;s Schedule</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {appointmentsLoading ? 'Loading...' : `${todayAppointments.length} appointments scheduled`}
+                </p>
               </div>
               <div className="p-6">
-                <div className="space-y-3">
-                  {mockAppointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{appointment.patient}</p>
-                        <p className="text-sm text-gray-600">{appointment.type}</p>
+                {appointmentsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-2">
+                            <div className="h-4 bg-gray-200 rounded w-32"></div>
+                            <div className="h-3 bg-gray-100 rounded w-24"></div>
+                          </div>
+                          <div className="h-4 bg-gray-200 rounded w-16"></div>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500 flex items-center">
-                        <ClockIcon className="h-4 w-4 mr-1" />
-                        {appointment.time}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : todayAppointments.length > 0 ? (
+                  <div className="space-y-3">
+                    {todayAppointments.map((appointment) => (
+                      <motion.div 
+                        key={appointment.id} 
+                        className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900">{appointment.patientName}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-sm text-gray-600">{appointment.type}</p>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              appointment.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
+                              appointment.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                              appointment.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {appointment.status}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-sm text-gray-500 flex items-center">
+                          <ClockIcon className="h-4 w-4 mr-1" />
+                          {appointment.time}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <CalendarDaysIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p className="font-medium">No appointments today</p>
+                    <p className="text-sm">Your schedule is clear</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -449,16 +434,33 @@ export default function DoctorDashboard() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
               <div className="p-6 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">Patient Vitals Trend</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {vitalsLoading ? 'Loading...' : 'Weekly average vitals from real patient data'}
+                </p>
               </div>
               <div className="p-6">
-                {/* Custom Line Chart */}
-                <div className="space-y-4">
-                  {/* Chart Legend */}
-                  <div className="flex items-center gap-6 mb-4">
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 bg-red-500 rounded mr-2"></div>
-                      <span className="text-sm text-gray-600">Blood Pressure</span>
+                {vitalsLoading ? (
+                  <div className="animate-pulse">
+                    <div className="h-48 bg-gray-200 rounded-lg mb-4"></div>
+                    <div className="flex justify-between">
+                      <div className="h-4 bg-gray-200 rounded w-8"></div>
+                      <div className="h-4 bg-gray-200 rounded w-8"></div>
+                      <div className="h-4 bg-gray-200 rounded w-8"></div>
+                      <div className="h-4 bg-gray-200 rounded w-8"></div>
+                      <div className="h-4 bg-gray-200 rounded w-8"></div>
+                      <div className="h-4 bg-gray-200 rounded w-8"></div>
+                      <div className="h-4 bg-gray-200 rounded w-8"></div>
                     </div>
+                  </div>
+                ) : (
+                  /* Custom Line Chart */
+                  <div className="space-y-4">
+                    {/* Chart Legend */}
+                    <div className="flex items-center gap-6 mb-4">
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 bg-red-500 rounded mr-2"></div>
+                        <span className="text-sm text-gray-600">Blood Pressure</span>
+                      </div>
                     <div className="flex items-center">
                       <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
                       <span className="text-sm text-gray-600">Heart Rate</span>
@@ -566,150 +568,25 @@ export default function DoctorDashboard() {
                     <div className="text-center">
                       <div className="text-xs text-gray-500">Latest BP</div>
                       <div className="text-lg font-semibold text-red-600">
-                        {vitalsTrend[vitalsTrend.length - 1].bloodPressure}
+                        {vitalsTrend[vitalsTrend.length - 1]?.bloodPressure || 'N/A'}
                       </div>
                     </div>
                     <div className="text-center">
                       <div className="text-xs text-gray-500">Latest HR</div>
                       <div className="text-lg font-semibold text-blue-600">
-                        {vitalsTrend[vitalsTrend.length - 1].heartRate}
+                        {vitalsTrend[vitalsTrend.length - 1]?.heartRate || 'N/A'}
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Patient Summary Modal */}
-        {selectedPatient && patientSummary && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40">
-            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    AI Summary: {selectedPatient?.name as string}
-                  </h3>
-                  <button
-                    onClick={() => { setSelectedPatient(null); setPatientSummary(''); }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div className="p-6">
-                {loadingSummary ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-gray-600 mt-4">Generating AI summary...</p>
-                  </div>
-                ) : (
-                  <div className="prose prose-sm max-w-none">
-                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{patientSummary}</p>
                   </div>
                 )}
               </div>
             </div>
+
+            {/* High-Risk Patients with Filters */}
+            <HighRiskPatientsWithFilters maxDisplay={8} />
           </div>
-        )}
-
-        {/* Prescription Form Modal */}
-        {showPrescriptionForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40">
-            <div className="bg-white rounded-xl max-w-md w-full">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Prescribe Medication
-                  </h3>
-                  <button
-                    onClick={() => setShowPrescriptionForm(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Patient: {selectedPatient?.name as string}
-                    </label>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Medication</label>
-                    <input
-                      type="text"
-                      value={prescriptionData.medication}
-                      onChange={(e) => setPrescriptionData({ ...prescriptionData, medication: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Enter medication name"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Dosage</label>
-                    <input
-                      type="text"
-                      value={prescriptionData.dosage}
-                      onChange={(e) => setPrescriptionData({ ...prescriptionData, dosage: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., 500mg"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
-                    <input
-                      type="text"
-                      value={prescriptionData.frequency}
-                      onChange={(e) => setPrescriptionData({ ...prescriptionData, frequency: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., Twice daily"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
-                    <input
-                      type="text"
-                      value={prescriptionData.duration}
-                      onChange={(e) => setPrescriptionData({ ...prescriptionData, duration: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., 7 days"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                    <textarea
-                      value={prescriptionData.notes}
-                      onChange={(e) => setPrescriptionData({ ...prescriptionData, notes: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      rows={3}
-                      placeholder="Additional instructions..."
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleSubmitPrescription}
-                    className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Add Prescription
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </motion.main>
 
       {/* Chatbot */}

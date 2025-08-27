@@ -25,6 +25,8 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { saveHighRiskPatients } from '@/lib/firestore/high-risk-patients';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PredictionResult {
   totalPatients: number;
@@ -50,6 +52,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [uploadedData, setUploadedData] = useState<unknown[] | null>(null);
   const router = useRouter();
+  const { user } = useAuth();
 
   const handleFileUploadData = (jsonData: unknown[]) => {
     console.log('📊 GENUINE UPLOAD ANALYSIS - Data received in admin dashboard:');
@@ -89,6 +92,37 @@ export default function AdminDashboard() {
       result.timestamp = new Date().toISOString();
       
       setPredictionResult(result);
+      
+      // Save high-risk patients to database
+      if (user && result.patients.length > 0) {
+        try {
+          console.log('💾 Saving high-risk patients to database...');
+          const savedIds = await saveHighRiskPatients(
+            result.patients.map(p => ({
+              id: p.id,
+              name: p.name,
+              riskLevel: p.riskLevel,
+              riskFactors: p.riskFactors,
+              confidence: p.confidence || '0%',
+              mlProbability: p.mlProbability || 0,
+              prediction: p.prediction || 'Unknown',
+              originalData: uploadedData.find((_, idx) => `P${String(idx + 1).padStart(3, '0')}` === p.id)
+            })),
+            user.uid
+          );
+          
+          if (savedIds.length > 0) {
+            toast.success(`✅ Saved ${savedIds.length} high-risk patients to database for doctors to review`);
+            console.log(`✅ Saved high-risk patient IDs:`, savedIds);
+          } else {
+            console.log('ℹ️  No high or medium risk patients to save');
+          }
+        } catch (saveError) {
+          console.error('❌ Error saving high-risk patients:', saveError);
+          toast.error('Prediction successful, but failed to save high-risk patients to database');
+        }
+      }
+      
       toast.success('Local ML prediction completed successfully!');
     } catch (error: unknown) {
       console.error('Local ML Prediction error:', error);
@@ -106,11 +140,18 @@ export default function AdminDashboard() {
     }
     
     try {
-      await signOut(auth);
-      toast.success('Logged out successfully');
+      // Navigate to home page first, before signing out
       router.push('/');
+      
+      // Then sign out after a small delay to ensure navigation happens first
+      setTimeout(async () => {
+        await signOut(auth);
+        toast.success('Logged out successfully');
+      }, 100);
     } catch (error: unknown) {
       toast.error('Error logging out');
+      // Fallback: ensure we still go to home page even if logout fails
+      router.push('/');
     }
   };
 

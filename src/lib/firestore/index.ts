@@ -18,3 +18,6 @@ export * from './vitals';
 
 // Notifications
 export * from './notifications';
+
+// High Risk Patients
+export * from './high-risk-patients';

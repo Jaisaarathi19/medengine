@@ -106,29 +106,16 @@ def predict_patients():
         
         print(f"📊 Processing {len(patients)} patients...")
         
-        # Create temporary CSV file
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as temp_file:
-            # Convert patients to DataFrame
-            df = pd.DataFrame(patients)
-            df.to_csv(temp_file.name, index=False)
-            temp_csv_path = temp_file.name
+        # Predict using the patients list directly
+        predictions = predictor.predict_batch(patients)
+        print(f"✅ Generated {len(predictions)} predictions")
         
-        try:
-            # Predict using the CSV file
-            predictions = predictor.predict_batch_csv(temp_csv_path)
-            print(f"✅ Generated {len(predictions)} predictions")
-            
-            return jsonify({
-                "success": True,
-                "predictions": predictions,
-                "message": f"Successfully processed {len(predictions)} patients"
-            })
-            
-        finally:
-            # Clean up temporary file
-            if os.path.exists(temp_csv_path):
-                os.unlink(temp_csv_path)
-    
+        return jsonify({
+            "success": True,
+            "predictions": predictions,
+            "message": f"Successfully processed {len(predictions)} patients"
+        })
+        
     except Exception as e:
         print(f"❌ Prediction error: {e}")
         traceback.print_exc()

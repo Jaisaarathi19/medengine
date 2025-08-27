@@ -1091,26 +1091,6 @@ export default function UploadVitalsPage() {
               </motion.div>
             </form>
           </motion.div>
-
-          {/* Enhanced File Upload Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 1.8 }}
-            className="mt-12"
-          >
-            <EnhancedVitalsUpload
-              title="Upload Additional Patient Data"
-              description="Upload diagnostic images, lab reports, or medical documents"
-              acceptedTypes=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.csv"
-              maxSize={15}
-              onFileUpload={(file, data) => {
-                console.log('Uploaded file:', file.name, data);
-                // You can add logic here to handle the uploaded files
-                // For example, associate them with the selected patient
-              }}
-            />
-          </motion.div>
         </div>
       </div>
     </div>

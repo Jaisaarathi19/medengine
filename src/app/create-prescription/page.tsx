@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, addDoc, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,28 +57,38 @@ export default function CreatePrescriptionPage() {
   };
 
   const searchPatients = async (searchTerm: string) => {
-    if (!searchTerm || searchTerm.length < 2) {
+    if (!searchTerm.trim()) {
       setPatientResults([]);
-      return;
-    }
-
-    if (!db) {
-      toast.error('Database connection not available');
       return;
     }
 
     setSearchingPatients(true);
     try {
-      const patientsRef = collection(db, 'patients');
-      const snapshot = await getDocs(patientsRef);
+      const q = query(
+        collection(db, 'users'),
+        where('role', '==', 'patient')
+      );
+
+      const querySnapshot = await getDocs(q);
+      const results: any[] = [];
       
-      const results = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter((patient: any) => 
-          patient.profile?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          patient.email?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-        .slice(0, 5);
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const fullName = `${data.profile?.firstName} ${data.profile?.lastName}`.toLowerCase();
+        const email = data.email?.toLowerCase();
+        const search = searchTerm.toLowerCase();
+        
+        if (fullName.includes(search) || email?.includes(search)) {
+          results.push({
+            id: doc.id,
+            ...data,
+            profile: {
+              ...data.profile,
+              name: `${data.profile?.firstName} ${data.profile?.lastName}`
+            }
+          });
+        }
+      });
 
       setPatientResults(results);
     } catch (error) {
@@ -93,35 +103,31 @@ export default function CreatePrescriptionPage() {
     setFormData(prev => ({
       ...prev,
       patientId: patient.id,
-      patientName: patient.profile?.name || 'Unknown Patient',
+      patientName: patient.profile?.name || `${patient.profile?.firstName} ${patient.profile?.lastName}`,
       patientEmail: patient.email
     }));
     setPatientResults([]);
   };
 
   const addMedication = () => {
-    setMedications([
-      ...medications,
-      {
-        name: '',
-        dosage: '',
-        frequency: '',
-        duration: '',
-        instructions: '',
-        refills: 0
-      }
-    ]);
+    setMedications(prev => [...prev, {
+      name: '',
+      dosage: '',
+      frequency: '',
+      duration: '',
+      instructions: '',
+      refills: 0
+    }]);
   };
 
   const removeMedication = (index: number) => {
-    setMedications(medications.filter((_, i) => i !== index));
+    setMedications(prev => prev.filter((_, i) => i !== index));
   };
 
   const updateMedication = (index: number, field: string, value: string | number) => {
-    const updated = medications.map((med, i) => 
+    setMedications(prev => prev.map((med, i) => 
       i === index ? { ...med, [field]: value } : med
-    );
-    setMedications(updated);
+    ));
   };
 
   const validateForm = () => {
@@ -129,14 +135,21 @@ export default function CreatePrescriptionPage() {
       toast.error('Please select a patient');
       return false;
     }
-    if (!formData.diagnosis) {
-      toast.error('Please enter diagnosis');
+    
+    if (!formData.diagnosis.trim()) {
+      toast.error('Diagnosis is required');
       return false;
     }
-    if (medications.some(med => !med.name || !med.dosage || !med.frequency)) {
-      toast.error('Please fill all medication details');
+    
+    const validMedications = medications.filter(med => 
+      med.name.trim() && med.dosage.trim() && med.frequency.trim()
+    );
+    
+    if (validMedications.length === 0) {
+      toast.error('At least one medication with name, dosage, and frequency is required');
       return false;
     }
+    
     return true;
   };
 
@@ -146,7 +159,6 @@ export default function CreatePrescriptionPage() {
     if (!validateForm()) return;
     
     setLoading(true);
-
     try {
       const prescriptionId = `RX-${Date.now()}`;
       
@@ -190,28 +202,8 @@ export default function CreatePrescriptionPage() {
         createdAt: new Date()
       });
 
-      // Create notification for pharmacy (if needed)
-      await addDoc(collection(db, 'notifications'), {
-        userId: 'pharmacy', // Special pharmacy user ID
-        type: 'prescription_pending',
-        title: 'New Prescription to Fill',
-        message: `Prescription ${prescriptionId} for ${formData.patientName} is ready for processing`,
-        prescriptionId,
-        read: false,
-        createdAt: new Date()
-      });
-
-      toast.success(`Prescription created successfully for ${formData.patientName}`);
-      
-      // Reset form
-      setFormData({
-        patientId: '', patientName: '', patientEmail: '',
-        doctorId: user?.uid || '', doctorName: user?.displayName || 'Current Doctor',
-        diagnosis: '', notes: '', followUpDate: '', status: 'active', priority: 'normal'
-      });
-      setMedications([{
-        name: '', dosage: '', frequency: '', duration: '', instructions: '', refills: 0
-      }]);
+      toast.success('Prescription created successfully!');
+      router.back();
 
     } catch (error: any) {
       console.error('Error creating prescription:', error);
@@ -350,263 +342,359 @@ export default function CreatePrescriptionPage() {
                         </motion.div>
                       )}
                     </motion.div>
-                    
-                    {/* Animated Search Results */}
-                    {patientResults.length > 0 && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="mt-3 backdrop-blur-xl bg-white/80 border border-white/30 rounded-2xl shadow-2xl max-h-64 overflow-y-auto"
-                      >
-                        {patientResults.map((patient, index) => (
-                          <motion.button
-                            key={patient.id}
-                            type="button"
-                            onClick={() => selectPatient(patient)}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                            whileHover={{ 
-                              scale: 1.02, 
-                              backgroundColor: "rgba(147, 51, 234, 0.1)",
-                              transition: { duration: 0.2 }
-                            }}
-                            className="w-full text-left px-6 py-4 border-b border-gray-100/50 last:border-b-0 flex items-center transition-all duration-300 rounded-2xl"
-                          >
-                            <div className="bg-gradient-to-r from-purple-400 to-pink-500 p-2 rounded-full mr-4">
-                              <UserIcon className="h-4 w-4 text-white" />
-                            </div>
+                  </div>
+
+                  {/* Patient Search Results */}
+                  {patientResults.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-200/50 shadow-xl max-h-60 overflow-y-auto"
+                    >
+                      {patientResults.map((patient, index) => (
+                        <motion.button
+                          key={patient.id || index}
+                          type="button"
+                          onClick={() => selectPatient(patient)}
+                          whileHover={{ scale: 1.02, backgroundColor: "rgba(147, 51, 234, 0.1)" }}
+                          className="w-full text-left p-4 hover:bg-purple-50 transition-all duration-200 border-b border-purple-100/50 last:border-b-0 rounded-2xl"
+                        >
+                          <div className="flex items-center">
+                            <UserIcon className="h-5 w-5 text-purple-500 mr-3" />
                             <div>
                               <div className="font-semibold text-gray-900">{patient.profile?.name}</div>
                               <div className="text-sm text-gray-600">{patient.email}</div>
                             </div>
-                          </motion.button>
+                          </div>
+                        </motion.button>
                       ))}
                     </motion.div>
                   )}
-                </div>
-            </div>
-                
-                {/* Selected Patient Display */}
-                {formData.patientId && (
-                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                    <div className="flex items-center">
-                      <UserIcon className="h-5 w-5 text-purple-600 mr-2" />
-                      <div>
-                        <div className="font-medium text-purple-900">Selected Patient: {formData.patientName}</div>
-                        <div className="text-sm text-purple-700">{formData.patientEmail}</div>
+
+                  {/* Selected Patient Display */}
+                  {formData.patientId && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-gradient-to-r from-purple-50/80 to-pink-50/80 backdrop-blur-sm p-6 rounded-2xl border border-purple-200/50 shadow-lg"
+                    >
+                      <div className="flex items-center">
+                        <UserIcon className="h-6 w-6 text-purple-600 mr-3" />
+                        <div>
+                          <div className="font-semibold text-purple-900 text-lg">Selected Patient: {formData.patientName}</div>
+                          <div className="text-purple-700">{formData.patientEmail}</div>
+                        </div>
                       </div>
-                    </div>
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Medical Details Section */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.5 }}
+              >
+                <div className="flex items-center mb-6">
+                  <div className="bg-gradient-to-r from-purple-500 to-pink-600 p-2 rounded-xl mr-4">
+                    <ClipboardDocumentListIcon className="h-6 w-6 text-white" />
                   </div>
-                )}
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-purple-600 bg-clip-text text-transparent">
+                    Medical Details
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <motion.div 
+                    className="md:col-span-2"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <label className="block text-sm font-semibold text-gray-800 mb-3">
+                      Diagnosis *
+                    </label>
+                    <input
+                      type="text"
+                      name="diagnosis"
+                      value={formData.diagnosis}
+                      onChange={handleInputChange}
+                      placeholder="Primary diagnosis or condition"
+                      className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg"
+                      required
+                    />
+                  </motion.div>
+                  
+                  <motion.div
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <label className="block text-sm font-semibold text-gray-800 mb-3">
+                      Follow-up Date
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        name="followUpDate"
+                        value={formData.followUpDate}
+                        onChange={handleInputChange}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg pl-12"
+                      />
+                      <CalendarIcon className="absolute left-4 top-4 h-6 w-6 text-purple-400" />
+                    </div>
+                  </motion.div>
+                  
+                  <motion.div
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <label className="block text-sm font-semibold text-gray-800 mb-3">
+                      Priority
+                    </label>
+                    <select
+                      name="priority"
+                      value={formData.priority}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="stat">STAT (Immediate)</option>
+                    </select>
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="md:col-span-2"
+                    whileFocus={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <label className="block text-sm font-semibold text-gray-800 mb-3">
+                      Additional Notes
+                    </label>
+                    <textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleInputChange}
+                      rows={3}
+                      placeholder="Additional instructions or notes..."
+                      className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg resize-none"
+                    />
+                  </motion.div>
+                </div>
+              </motion.div>
+
+              {/* Medications Section */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 }}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center">
+                    <div className="bg-gradient-to-r from-purple-500 to-pink-600 p-2 rounded-xl mr-4">
+                      <BeakerIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-purple-600 bg-clip-text text-transparent">
+                      Medications
+                    </h2>
+                  </div>
+                  <motion.button
+                    type="button"
+                    onClick={addMedication}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-300 shadow-lg"
+                  >
+                    <PlusIcon className="h-5 w-5 mr-2" />
+                    Add Medication
+                  </motion.button>
+                </div>
+
+                <div className="space-y-8">
+                  {medications.map((medication, index) => (
+                    <motion.div 
+                      key={index} 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: index * 0.1 }}
+                      className="bg-white/60 backdrop-blur-sm border border-purple-200/50 rounded-2xl p-6 shadow-lg"
+                    >
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                          <BeakerIcon className="h-6 w-6 text-purple-500 mr-2" />
+                          Medication {index + 1}
+                        </h3>
+                        {medications.length > 1 && (
+                          <motion.button
+                            type="button"
+                            onClick={() => removeMedication(index)}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="text-red-500 hover:text-red-700 font-semibold text-sm px-3 py-1 rounded-lg hover:bg-red-50 transition-all duration-300"
+                          >
+                            Remove
+                          </motion.button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <motion.div 
+                          className="lg:col-span-2"
+                          whileFocus={{ scale: 1.02 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">
+                            Medication Name *
+                          </label>
+                          <input
+                            type="text"
+                            value={medication.name}
+                            onChange={(e) => updateMedication(index, 'name', e.target.value)}
+                            placeholder="Enter medication name"
+                            className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg"
+                            required
+                          />
+                        </motion.div>
+                        
+                        <motion.div
+                          whileFocus={{ scale: 1.02 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">
+                            Dosage *
+                          </label>
+                          <input
+                            type="text"
+                            value={medication.dosage}
+                            onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
+                            placeholder="e.g., 500mg"
+                            className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg"
+                            required
+                          />
+                        </motion.div>
+                        
+                        <motion.div
+                          whileFocus={{ scale: 1.02 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">
+                            Frequency *
+                          </label>
+                          <select
+                            value={medication.frequency}
+                            onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
+                            className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg"
+                            required
+                          >
+                            <option value="">Select frequency</option>
+                            <option value="Once daily">Once daily</option>
+                            <option value="Twice daily">Twice daily</option>
+                            <option value="Three times daily">Three times daily</option>
+                            <option value="Four times daily">Four times daily</option>
+                            <option value="Every 4 hours">Every 4 hours</option>
+                            <option value="Every 6 hours">Every 6 hours</option>
+                            <option value="Every 8 hours">Every 8 hours</option>
+                            <option value="As needed">As needed</option>
+                          </select>
+                        </motion.div>
+                        
+                        <motion.div
+                          whileFocus={{ scale: 1.02 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">
+                            Duration
+                          </label>
+                          <input
+                            type="text"
+                            value={medication.duration}
+                            onChange={(e) => updateMedication(index, 'duration', e.target.value)}
+                            placeholder="e.g., 7 days"
+                            className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg"
+                          />
+                        </motion.div>
+                        
+                        <motion.div
+                          whileFocus={{ scale: 1.02 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">
+                            Refills
+                          </label>
+                          <input
+                            type="number"
+                            value={medication.refills}
+                            onChange={(e) => updateMedication(index, 'refills', parseInt(e.target.value) || 0)}
+                            min="0"
+                            max="5"
+                            className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg"
+                          />
+                        </motion.div>
+                        
+                        <motion.div 
+                          className="lg:col-span-3"
+                          whileFocus={{ scale: 1.02 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <label className="block text-sm font-semibold text-gray-800 mb-3">
+                            Special Instructions
+                          </label>
+                          <textarea
+                            value={medication.instructions}
+                            onChange={(e) => updateMedication(index, 'instructions', e.target.value)}
+                            rows={2}
+                            placeholder="e.g., Take with food, avoid alcohol"
+                            className="w-full px-4 py-4 bg-white/60 border border-purple-200/50 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400 transition-all duration-300 backdrop-blur-sm text-gray-900 font-medium shadow-lg resize-none"
+                          />
+                        </motion.div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+
+              {/* Submit Button Section */}
+              <motion.div 
+                className="flex justify-end space-x-4 pt-8 border-t border-purple-200/50"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.7 }}
+              >
+                <motion.button
+                  type="button"
+                  onClick={() => router.back()}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-3 bg-white/70 backdrop-blur-sm border border-gray-300/50 rounded-2xl text-gray-700 hover:bg-gray-50/80 transition-all duration-300 font-semibold shadow-lg"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  type="submit"
+                  disabled={loading || !formData.patientId}
+                  whileHover={{ scale: loading ? 1 : 1.05 }}
+                  whileTap={{ scale: loading ? 1 : 0.95 }}
+                  className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-2xl hover:from-purple-600 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center font-semibold shadow-lg"
+                >
+                  {loading ? (
+                    <>
+                      <motion.div 
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-3"
+                      ></motion.div>
+                      Creating Prescription...
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
+                      Create Prescription
+                    </>
+                  )}
+                </motion.button>
               </motion.div>
             </form>
-
-            {/* Diagnosis & Details */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Medical Details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Diagnosis *
-                  </label>
-                  <input
-                    type="text"
-                    name="diagnosis"
-                    value={formData.diagnosis}
-                    onChange={handleInputChange}
-                    placeholder="Primary diagnosis or condition"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Follow-up Date
-                  </label>
-                  <input
-                    type="date"
-                    name="followUpDate"
-                    value={formData.followUpDate}
-                    onChange={handleInputChange}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Priority
-                  </label>
-                  <select
-                    name="priority"
-                    value={formData.priority}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="urgent">Urgent</option>
-                    <option value="stat">STAT (Immediate)</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Additional Notes
-                  </label>
-                  <textarea
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    rows={3}
-                    placeholder="Additional instructions or notes..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Medications */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Medications</h2>
-                <button
-                  type="button"
-                  onClick={addMedication}
-                  className="flex items-center px-3 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Medication
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {medications.map((medication, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-gray-900">Medication {index + 1}</h3>
-                      {medications.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeMedication(index)}
-                          className="text-red-600 hover:text-red-700 text-sm font-medium"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="lg:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Medication Name *
-                        </label>
-                        <input
-                          type="text"
-                          value={medication.name}
-                          onChange={(e) => updateMedication(index, 'name', e.target.value)}
-                          placeholder="e.g., Lisinopril"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Refills
-                        </label>
-                        <input
-                          type="number"
-                          value={medication.refills}
-                          onChange={(e) => updateMedication(index, 'refills', parseInt(e.target.value) || 0)}
-                          min="0"
-                          max="12"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Dosage *
-                        </label>
-                        <input
-                          type="text"
-                          value={medication.dosage}
-                          onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
-                          placeholder="e.g., 10mg"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Frequency *
-                        </label>
-                        <input
-                          type="text"
-                          value={medication.frequency}
-                          onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
-                          placeholder="e.g., Once daily"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Duration
-                        </label>
-                        <input
-                          type="text"
-                          value={medication.duration}
-                          onChange={(e) => updateMedication(index, 'duration', e.target.value)}
-                          placeholder="e.g., 30 days"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div className="lg:col-span-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Instructions
-                        </label>
-                        <input
-                          type="text"
-                          value={medication.instructions}
-                          onChange={(e) => updateMedication(index, 'instructions', e.target.value)}
-                          placeholder="e.g., Take with food, avoid alcohol"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end space-x-4">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading || !formData.patientId}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Creating Prescription...
-                  </>
-                ) : (
-                  <>
-                    <ClipboardDocumentListIcon className="h-5 w-5 mr-2" />
-                    Create Prescription
-                  </>
-                )}
-              </button>
-            </div>
           </motion.div>
         </div>
       </div>
