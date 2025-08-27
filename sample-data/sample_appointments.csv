@@ -1,0 +1,16 @@
+appointment_id,patient_id,patient_name,doctor_id,doctor_name,department,date,time,type,status,notes,duration_minutes,room
+A001,P001,John Smith,DOC001,Dr. Sarah Chen,Cardiology,2024-02-15,09:00 AM,Follow-up,Scheduled,Post-procedure cardiac evaluation,30,Exam Room 1
+A002,P002,Maria Rodriguez,DOC001,Dr. Sarah Chen,Cardiology,2024-02-15,10:30 AM,Consultation,Scheduled,Cholesterol management review,45,Exam Room 1
+A003,P003,Robert Johnson,DOC002,Dr. Michael Park,Endocrinology,2024-02-15,02:00 PM,Follow-up,Scheduled,Diabetes management check,30,Exam Room 3
+A004,P004,Emily Davis,DOC003,Dr. Lisa Wong,Obstetrics,2024-02-16,09:30 AM,Prenatal,Scheduled,32-week prenatal checkup,30,Exam Room 5
+A005,P005,David Wilson,DOC004,Dr. James Miller,Orthopedics,2024-02-16,11:00 AM,Follow-up,Scheduled,Fracture healing assessment,20,Exam Room 2
+A006,P006,Sarah Thompson,DOC005,Dr. Anna Lee,Dermatology,2024-02-16,03:00 PM,Treatment,Scheduled,Eczema treatment session,45,Treatment Room 1
+A007,P007,Michael Brown,DOC001,Dr. Sarah Chen,Cardiology,2024-02-17,10:00 AM,Follow-up,Scheduled,Atrial fibrillation monitoring,30,Exam Room 1
+A008,P008,Jennifer Martinez,DOC006,Dr. Patricia Nguyen,Emergency,2024-02-17,01:00 PM,Follow-up,Completed,Post-accident recovery check,25,Exam Room 4
+A009,P009,Christopher Lee,DOC007,Dr. Kevin Chang,Gastroenterology,2024-02-17,04:30 PM,Procedure,Scheduled,Upper endoscopy procedure,60,Procedure Room 1
+A010,P010,Amanda Johnson,DOC008,Dr. Rachel Green,Neurology,2024-02-18,08:30 AM,Follow-up,Scheduled,Epilepsy medication adjustment,30,Exam Room 6
+A011,P011,Daniel Garcia,DOC009,Dr. Steven Liu,Pulmonology,2024-02-18,11:30 AM,Consultation,Scheduled,Asthma management plan,40,Exam Room 3
+A012,P012,Lisa Anderson,DOC010,Dr. Michelle Chen,Endocrinology,2024-02-18,02:30 PM,Follow-up,Scheduled,Thyroid function monitoring,20,Exam Room 2
+A013,P001,John Smith,DOC001,Dr. Sarah Chen,Cardiology,2024-02-22,09:00 AM,Follow-up,Scheduled,Blood pressure medication review,30,Exam Room 1
+A014,P003,Robert Johnson,DOC002,Dr. Michael Park,Endocrinology,2024-02-22,02:00 PM,Follow-up,Scheduled,Insulin dosage adjustment,30,Exam Room 3
+A015,P007,Michael Brown,DOC001,Dr. Sarah Chen,Cardiology,2024-02-24,10:00 AM,Follow-up,Scheduled,Warfarin level check,20,Exam Room 1

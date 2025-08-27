@@ -1,0 +1,18 @@
+staff_id,name,email,role,department,shift,phone,hire_date,license_number,specialization,status
+DOC001,Dr. Sarah Chen,sarah.chen@medengine.ai,doctor,Cardiology,Day,+1-555-2001,2020-03-15,MD-12345,Interventional Cardiology,Active
+DOC002,Dr. Michael Park,michael.park@medengine.ai,doctor,Endocrinology,Day,+1-555-2002,2019-07-22,MD-23456,Diabetes and Metabolism,Active
+DOC003,Dr. Lisa Wong,lisa.wong@medengine.ai,doctor,Obstetrics,Day,+1-555-2003,2021-01-10,MD-34567,Maternal-Fetal Medicine,Active
+DOC004,Dr. James Miller,james.miller@medengine.ai,doctor,Orthopedics,Day,+1-555-2004,2018-11-08,MD-45678,Sports Medicine,Active
+DOC005,Dr. Anna Lee,anna.lee@medengine.ai,doctor,Dermatology,Day,+1-555-2005,2020-09-14,MD-56789,Dermatopathology,Active
+DOC006,Dr. Patricia Nguyen,patricia.nguyen@medengine.ai,doctor,Emergency,Night,+1-555-2006,2022-02-28,MD-67890,Emergency Medicine,Active
+DOC007,Dr. Kevin Chang,kevin.chang@medengine.ai,doctor,Gastroenterology,Day,+1-555-2007,2019-05-17,MD-78901,Hepatology,Active
+DOC008,Dr. Rachel Green,rachel.green@medengine.ai,doctor,Neurology,Day,+1-555-2008,2020-12-03,MD-89012,Epilepsy,Active
+DOC009,Dr. Steven Liu,steven.liu@medengine.ai,doctor,Pulmonology,Day,+1-555-2009,2021-08-25,MD-90123,Critical Care,Active
+DOC010,Dr. Michelle Chen,michelle.chen@medengine.ai,doctor,Endocrinology,Day,+1-555-2010,2019-10-12,MD-01234,Thyroid Disorders,Active
+NUR001,Emily Rodriguez,emily.rodriguez@medengine.ai,nurse,Emergency,Day,+1-555-3001,2022-04-18,RN-67890,Emergency Nursing,Active
+NUR002,Jessica Martinez,jessica.martinez@medengine.ai,nurse,ICU,Night,+1-555-3002,2021-06-22,RN-78901,Critical Care,Active
+NUR003,Ashley Thompson,ashley.thompson@medengine.ai,nurse,Cardiology,Day,+1-555-3003,2020-09-15,RN-89012,Cardiac Care,Active
+NUR004,Maria Santos,maria.santos@medengine.ai,nurse,Pediatrics,Day,+1-555-3004,2019-12-10,RN-90123,Pediatric Nursing,Active
+NUR005,Jennifer Kim,jennifer.kim@medengine.ai,nurse,Surgery,Day,+1-555-3005,2021-03-08,RN-01234,Perioperative,Active
+ADM001,System Administrator,admin@medengine.ai,admin,IT Administration,Day,+1-555-1001,2018-01-15,N/A,Healthcare IT,Active
+ADM002,Hospital Director,director@medengine.ai,admin,Administration,Day,+1-555-1002,2015-06-01,N/A,Healthcare Management,Active

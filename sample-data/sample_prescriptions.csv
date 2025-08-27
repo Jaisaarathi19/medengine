@@ -1,0 +1,16 @@
+prescription_id,patient_id,patient_name,doctor_id,doctor_name,medication_name,dosage,frequency,quantity,refills,date_prescribed,start_date,end_date,instructions,pharmacy,status
+RX001,P001,John Smith,DOC001,Dr. Sarah Chen,Lisinopril,10mg,Once daily,30 tablets,5,2024-01-15,2024-01-15,2024-07-15,Take with food,CVS Pharmacy,Active
+RX002,P001,John Smith,DOC001,Dr. Sarah Chen,Metoprolol,25mg,Twice daily,60 tablets,5,2024-01-15,2024-01-15,2024-07-15,Take with meals,CVS Pharmacy,Active
+RX003,P002,Maria Rodriguez,DOC001,Dr. Sarah Chen,Atorvastatin,20mg,Once daily at bedtime,30 tablets,5,2024-01-18,2024-01-18,2024-07-18,Take at bedtime,Walgreens,Active
+RX004,P003,Robert Johnson,DOC002,Dr. Michael Park,Insulin glargine,20 units,Twice daily,1 vial,3,2024-01-20,2024-01-20,2024-04-20,Inject subcutaneously,Rite Aid,Active
+RX005,P003,Robert Johnson,DOC002,Dr. Michael Park,Metformin,500mg,Twice daily,60 tablets,5,2024-01-20,2024-01-20,2024-07-20,Take with meals,Rite Aid,Active
+RX006,P004,Emily Davis,DOC003,Dr. Lisa Wong,Prenatal vitamins,1 tablet,Once daily,90 tablets,0,2024-01-22,2024-01-22,2024-04-22,Take with food,Target Pharmacy,Active
+RX007,P005,David Wilson,DOC004,Dr. James Miller,Ibuprofen,400mg,As needed for pain,20 tablets,2,2024-01-25,2024-01-25,2024-04-25,Do not exceed 3 times daily,CVS Pharmacy,Active
+RX008,P006,Sarah Thompson,DOC005,Dr. Anna Lee,Hydrocortisone cream,1%,Apply twice daily,1 tube,2,2024-01-28,2024-01-28,2024-04-28,Apply thin layer to affected areas,Walgreens,Active
+RX009,P007,Michael Brown,DOC001,Dr. Sarah Chen,Warfarin,5mg,Once daily,30 tablets,5,2024-02-01,2024-02-01,2024-08-01,Take at same time daily,CVS Pharmacy,Active
+RX010,P007,Michael Brown,DOC001,Dr. Sarah Chen,Digoxin,0.25mg,Once daily,30 tablets,5,2024-02-01,2024-02-01,2024-08-01,Check pulse before taking,CVS Pharmacy,Active
+RX011,P008,Jennifer Martinez,DOC006,Dr. Patricia Nguyen,Acetaminophen,500mg,Every 6 hours as needed,20 tablets,1,2024-02-03,2024-02-03,2024-03-03,For pain management,Rite Aid,Active
+RX012,P009,Christopher Lee,DOC007,Dr. Kevin Chang,Omeprazole,40mg,Once daily before breakfast,30 tablets,5,2024-02-05,2024-02-05,2024-08-05,Take 30 minutes before eating,Target Pharmacy,Active
+RX013,P010,Amanda Johnson,DOC008,Dr. Rachel Green,Levetiracetam,500mg,Twice daily,60 tablets,5,2024-02-08,2024-02-08,2024-08-08,Take at consistent times,Walgreens,Active
+RX014,P011,Daniel Garcia,DOC009,Dr. Steven Liu,Albuterol inhaler,90mcg,As needed for breathing,1 inhaler,3,2024-02-10,2024-02-10,2024-08-10,Shake before use,CVS Pharmacy,Active
+RX015,P012,Lisa Anderson,DOC010,Dr. Michelle Chen,Levothyroxine,100mcg,Once daily on empty stomach,30 tablets,5,2024-02-12,2024-02-12,2024-08-12,Take 1 hour before breakfast,Rite Aid,Active
