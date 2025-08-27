@@ -102,6 +102,11 @@ export default function UploadVitalsPage() {
       return;
     }
 
+    if (!db) {
+      toast.error('Database connection not available');
+      return;
+    }
+
     setSearchingPatients(true);
     try {
       const patientsRef = collection(db, 'patients');
@@ -184,6 +189,11 @@ export default function UploadVitalsPage() {
     e.preventDefault();
     
     if (!validateForm()) return;
+
+    if (!db) {
+      toast.error('Database connection not available');
+      return;
+    }
     
     setLoading(true);
 

@@ -87,6 +87,11 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
+    if (!auth) {
+      toast.error('Authentication not available');
+      return;
+    }
+    
     try {
       await signOut(auth);
       toast.success('Logged out successfully');

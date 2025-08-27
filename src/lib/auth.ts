@@ -38,6 +38,10 @@ export async function signUpWithRole(
   password: string, 
   userData: Omit<UserRole, 'uid' | 'createdAt' | 'updatedAt'>
 ): Promise<UserCredential> {
+  if (!auth || !db) {
+    throw new Error('Firebase services not initialized');
+  }
+
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
@@ -69,6 +73,10 @@ export async function signUpWithRole(
  * Sign in existing user
  */
 export async function signIn(email: string, password: string): Promise<UserCredential> {
+  if (!auth) {
+    throw new Error('Authentication not initialized');
+  }
+
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     console.log(`✅ User signed in: ${userCredential.user.email}`);
@@ -83,6 +91,11 @@ export async function signIn(email: string, password: string): Promise<UserCrede
  * Get user role and profile from Firestore
  */
 export async function getUserRole(uid: string): Promise<UserRole | null> {
+  if (!db) {
+    console.warn('Database not initialized');
+    return null;
+  }
+
   try {
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
@@ -103,6 +116,10 @@ export async function updateUserProfile(
   uid: string, 
   updates: Partial<Omit<UserRole, 'uid' | 'createdAt'>>
 ): Promise<void> {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
   try {
     await updateDoc(doc(db, 'users', uid), {
       ...updates,
@@ -119,6 +136,10 @@ export async function updateUserProfile(
  * Sign out current user
  */
 export async function signOut(): Promise<void> {
+  if (!auth) {
+    throw new Error('Authentication not initialized');
+  }
+  
   try {
     await firebaseSignOut(auth);
     console.log('✅ User signed out successfully');
@@ -132,6 +153,10 @@ export async function signOut(): Promise<void> {
  * Send password reset email
  */
 export async function resetPassword(email: string): Promise<void> {
+  if (!auth) {
+    throw new Error('Authentication not initialized');
+  }
+
   try {
     await sendPasswordResetEmail(auth, email);
     console.log(`✅ Password reset email sent to: ${email}`);
