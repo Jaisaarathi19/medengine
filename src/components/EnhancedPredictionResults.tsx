@@ -176,6 +176,127 @@ export default function EnhancedPredictionResults({ predictionResult }: Predicti
         </div>
       </motion.div>
 
+      {/* Pie Chart Visualization */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-gradient-to-br from-white to-red-50/30 backdrop-blur-sm border border-red-200/50 rounded-2xl p-6 shadow-xl"
+      >
+        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+          <ChartBarIcon className="h-6 w-6 mr-3 text-red-500" />
+          Risk Distribution Chart
+        </h3>
+
+        <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
+          {/* Custom SVG Pie Chart */}
+          <div className="relative">
+            <svg width="300" height="300" viewBox="0 0 300 300" className="transform -rotate-90">
+              {(() => {
+                const centerX = 150;
+                const centerY = 150;
+                const radius = 100;
+                let currentAngle = 0;
+
+                return riskData.map((risk, index) => {
+                  const percentage = parseFloat(risk.percentage);
+                  const angle = (percentage / 100) * 360;
+                  const angleInRadians = (angle * Math.PI) / 180;
+                  const largeArcFlag = angle > 180 ? 1 : 0;
+
+                  const startX = centerX + radius * Math.cos((currentAngle * Math.PI) / 180);
+                  const startY = centerY + radius * Math.sin((currentAngle * Math.PI) / 180);
+                  
+                  const endX = centerX + radius * Math.cos(((currentAngle + angle) * Math.PI) / 180);
+                  const endY = centerY + radius * Math.sin(((currentAngle + angle) * Math.PI) / 180);
+
+                  const pathData = [
+                    `M ${centerX} ${centerY}`,
+                    `L ${startX} ${startY}`,
+                    `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY}`,
+                    'Z'
+                  ].join(' ');
+
+                  currentAngle += angle;
+
+                  return (
+                    <motion.path
+                      key={`pie-${index}`}
+                      d={pathData}
+                      fill={risk.color.bg.includes('gradient') ? 
+                        (risk.level.includes('High') ? '#EF4444' : 
+                         risk.level.includes('Medium') ? '#F59E0B' : '#10B981') : 
+                        risk.color.bg}
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 0.8, scale: 1 }}
+                      transition={{ delay: 0.5 + index * 0.2, duration: 0.8 }}
+                      whileHover={{ opacity: 1, scale: 1.02 }}
+                      className="cursor-pointer drop-shadow-lg"
+                      style={{
+                        filter: 'drop-shadow(2px 4px 6px rgba(0,0,0,0.1))'
+                      }}
+                    />
+                  );
+                });
+              })()}
+              
+              {/* Center circle for donut effect */}
+              <circle 
+                cx="150" 
+                cy="150" 
+                r="40" 
+                fill="white"
+                stroke="#e5e7eb"
+                strokeWidth="2"
+              />
+              
+              {/* Center text */}
+              <text x="150" y="145" textAnchor="middle" className="fill-gray-900 text-sm font-bold transform rotate-90" style={{transformOrigin: '150px 145px'}}>
+                {predictionResult.totalPatients}
+              </text>
+              <text x="150" y="160" textAnchor="middle" className="fill-gray-600 text-xs transform rotate-90" style={{transformOrigin: '150px 160px'}}>
+                Total
+              </text>
+            </svg>
+          </div>
+
+          {/* Legend */}
+          <div className="space-y-4">
+            {riskData.map((risk, index) => {
+              const IconComponent = risk.icon;
+              return (
+                <motion.div
+                  key={`legend-${index}`}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.6 + index * 0.1 }}
+                  className="flex items-center space-x-4 p-3 rounded-xl hover:bg-white/50 transition-colors duration-200"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div
+                      className="w-6 h-6 rounded-full shadow-lg"
+                      style={{
+                        backgroundColor: risk.level.includes('High') ? '#EF4444' : 
+                                        risk.level.includes('Medium') ? '#F59E0B' : '#10B981'
+                      }}
+                    ></div>
+                    <IconComponent className={`h-5 w-5 ${risk.color.icon}`} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-gray-900">{risk.level}</div>
+                    <div className="text-sm text-gray-600">{risk.description}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-lg font-bold ${risk.color.text}`}>{risk.count}</div>
+                    <div className="text-sm text-gray-500">{risk.percentage}%</div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
+
       {/* Risk Distribution Visual */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
