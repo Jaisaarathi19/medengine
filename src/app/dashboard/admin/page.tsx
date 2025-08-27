@@ -16,7 +16,7 @@ import {
   Cog6ToothIcon,
   HeartIcon
 } from '@heroicons/react/24/outline';
-import { generatePrediction } from '@/lib/gemini';
+import { localMLService } from '@/lib/local-ml';
 import { toast } from 'react-hot-toast';
 import EnhancedFileUpload from '@/components/EnhancedFileUpload';
 import EnhancedPredictionResults from '@/components/EnhancedPredictionResults';
@@ -66,21 +66,34 @@ export default function AdminDashboard() {
       return;
     }
 
-    console.log('🤖 PREDICTION INITIATION - About to send to Gemini:');
+    console.log('🤖 LOCAL ML PREDICTION - About to send to local backend:');
     console.log('   Data array length:', uploadedData.length);
     console.log('   Data being sent (first record):', uploadedData[0]);
     console.log('   Data being sent (last record):', uploadedData[uploadedData.length - 1]);
     
     setLoading(true);
     try {
-      const result = await generatePrediction(uploadedData);
-      console.log('✅ FINAL RESULT RECEIVED FROM GEMINI:', result);
-      console.log('   Comparison: Sent', uploadedData.length, 'records, Gemini returned', result.totalPatients, 'total patients');
+      // Check if backend is running first
+      const isBackendRunning = await localMLService.isBackendRunning();
+      if (!isBackendRunning) {
+        toast.error('Local ML backend is not running. Please start your Flask server on port 5001.');
+        setLoading(false);
+        return;
+      }
+
+      const result = await localMLService.predictFromCsvData(uploadedData as any[]);
+      console.log('✅ FINAL RESULT RECEIVED FROM LOCAL ML:', result);
+      console.log('   Comparison: Sent', uploadedData.length, 'records, ML returned', result.totalPatients, 'total patients');
+      
+      // Add timestamp for display
+      result.timestamp = new Date().toISOString();
+      
       setPredictionResult(result);
-      toast.success('AI prediction completed successfully!');
+      toast.success('Local ML prediction completed successfully!');
     } catch (error: unknown) {
-      console.error('Prediction error:', error);
-      toast.error('Error generating prediction. Please try again.');
+      console.error('Local ML Prediction error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Local ML Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
