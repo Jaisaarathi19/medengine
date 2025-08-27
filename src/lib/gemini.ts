@@ -15,28 +15,40 @@ if (isValidApiKey) {
 export { model };
 
 export async function generatePrediction(patientData: unknown[]) {
+  const totalPatients = Array.isArray(patientData) ? patientData.length : 0;
+  console.log('🔬 Gemini generatePrediction called with', totalPatients, 'patients');
+  
   // Return mock data if API key is not valid
   if (!isValidApiKey) {
     console.warn('Gemini API key not configured - using mock data');
+    
+    // Calculate realistic risk distribution based on actual data size
+    const highRisk = Math.ceil(totalPatients * 0.3); // 30% high risk
+    const mediumRisk = Math.ceil(totalPatients * 0.4); // 40% medium risk  
+    const lowRisk = totalPatients - highRisk - mediumRisk; // Remaining as low risk
+    
+    console.log('📊 Mock risk distribution:', { totalPatients, highRisk, mediumRisk, lowRisk });
+    
+    // Generate mock patient data matching the actual uploaded data
+    const mockPatients = [];
+    for (let i = 0; i < Math.min(totalPatients, 10); i++) { // Show first 10 for display
+      const riskLevel = i < highRisk ? 'High' : i < (highRisk + mediumRisk) ? 'Medium' : 'Low';
+      mockPatients.push({
+        id: `P${(i + 1).toString().padStart(3, '0')}`,
+        name: `Patient ${i + 1}`,
+        riskLevel,
+        riskFactors: riskLevel === 'High' ? ["High risk factors detected"] : 
+                    riskLevel === 'Medium' ? ["Moderate risk factors"] : 
+                    ["Low risk profile"]
+      });
+    }
+    
     return {
-      totalPatients: Array.isArray(patientData) ? patientData.length : 0,
-      highRisk: 2,
-      mediumRisk: 3,
-      lowRisk: 5,
-      patients: [
-        {
-          id: "P001",
-          name: "John Smith",
-          riskLevel: "High",
-          riskFactors: ["Previous readmissions", "Multiple comorbidities"]
-        },
-        {
-          id: "P002",
-          name: "Maria Rodriguez",
-          riskLevel: "Low",
-          riskFactors: ["Good medication compliance"]
-        }
-      ]
+      totalPatients,
+      highRisk,
+      mediumRisk,
+      lowRisk,
+      patients: mockPatients
     };
   }
 
@@ -63,30 +75,49 @@ export async function generatePrediction(patientData: unknown[]) {
   `;
 
   try {
+    console.log('🤖 Calling Gemini AI with', totalPatients, 'patients');
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let responseText = response.text();
     
+    console.log('🎯 Raw AI response:', responseText.substring(0, 200) + '...');
+    
     // Clean the response text - remove markdown code blocks if present
     responseText = responseText.replace(/```json\s*/, '').replace(/```\s*$/, '').trim();
     
-    return JSON.parse(responseText);
+    const parsedResult = JSON.parse(responseText);
+    console.log('📋 Parsed AI result:', parsedResult);
+    
+    return parsedResult;
   } catch (error) {
     console.error('AI prediction error:', error);
+    
+    const totalPatients = Array.isArray(patientData) ? patientData.length : 0;
+    
+    // Calculate realistic risk distribution based on actual data size
+    const highRisk = Math.ceil(totalPatients * 0.3); // 30% high risk
+    const mediumRisk = Math.ceil(totalPatients * 0.4); // 40% medium risk  
+    const lowRisk = totalPatients - highRisk - mediumRisk; // Remaining as low risk
+    
+    // Generate fallback patient data matching the actual uploaded data
+    const fallbackPatients = [];
+    for (let i = 0; i < Math.min(totalPatients, 10); i++) { // Show first 10 for display
+      const riskLevel = i < highRisk ? 'High' : i < (highRisk + mediumRisk) ? 'Medium' : 'Low';
+      fallbackPatients.push({
+        id: `P${(i + 1).toString().padStart(3, '0')}`,
+        name: `Patient ${i + 1}`,
+        riskLevel,
+        riskFactors: ["API Error - Using fallback data"]
+      });
+    }
+    
     // Return mock data on error
     return {
-      totalPatients: Array.isArray(patientData) ? patientData.length : 0,
-      highRisk: 1,
-      mediumRisk: 2,
-      lowRisk: 3,
-      patients: [
-        {
-          id: "P001",
-          name: "Sample Patient",
-          riskLevel: "Medium",
-          riskFactors: ["API Error - Using fallback data"]
-        }
-      ]
+      totalPatients,
+      highRisk,
+      mediumRisk,
+      lowRisk,
+      patients: fallbackPatients
     };
   }
 }

@@ -52,6 +52,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   const handleFileUploadData = (jsonData: unknown[]) => {
+    console.log('📊 Data received in admin dashboard:', jsonData.length, 'rows');
     setUploadedData(jsonData);
   };
 
@@ -61,9 +62,11 @@ export default function AdminDashboard() {
       return;
     }
 
+    console.log('🤖 Generating prediction for', uploadedData.length, 'patients');
     setLoading(true);
     try {
       const result = await generatePrediction(uploadedData);
+      console.log('✅ Prediction result:', result);
       setPredictionResult(result);
       toast.success('AI prediction completed successfully!');
     } catch (error: unknown) {
