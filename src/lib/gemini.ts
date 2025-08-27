@@ -52,6 +52,20 @@ export async function generatePrediction(patientData: unknown[]) {
     };
   }
 
+  // Log the exact data being sent to Gemini for genuine analysis
+  console.log('🔍 GENUINE DATA ANALYSIS - Raw patient data being sent to Gemini:');
+  console.log('📊 Data structure:', {
+    isArray: Array.isArray(patientData),
+    length: patientData.length,
+    firstRecord: patientData[0],
+    lastRecord: patientData[patientData.length - 1],
+    sampleKeys: patientData[0] ? Object.keys(patientData[0]) : 'No keys found'
+  });
+  
+  // Log first 3 and last 3 records to see actual data
+  console.log('📋 First 3 records:', patientData.slice(0, 3));
+  console.log('📋 Last 3 records:', patientData.slice(-3));
+  
   const prompt = `
     Analyze the following patient discharge data and predict readmission risk:
     ${JSON.stringify(patientData)}
@@ -75,18 +89,27 @@ export async function generatePrediction(patientData: unknown[]) {
   `;
 
   try {
-    console.log('🤖 Calling Gemini AI with', totalPatients, 'patients');
+    console.log('🤖 Sending to Gemini AI - Prompt length:', prompt.length, 'characters');
+    console.log('🔤 Data portion of prompt (first 500 chars):', JSON.stringify(patientData).substring(0, 500) + '...');
+    
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let responseText = response.text();
     
-    console.log('🎯 Raw AI response:', responseText.substring(0, 200) + '...');
+    console.log('🎯 COMPLETE AI RESPONSE (unfiltered):', responseText);
+    console.log('📏 Response length:', responseText.length, 'characters');
     
     // Clean the response text - remove markdown code blocks if present
     responseText = responseText.replace(/```json\s*/, '').replace(/```\s*$/, '').trim();
+    console.log('🧹 Cleaned response:', responseText);
     
     const parsedResult = JSON.parse(responseText);
-    console.log('📋 Parsed AI result:', parsedResult);
+    console.log('📋 FINAL PARSED RESULT FROM GEMINI:');
+    console.log('   Total Patients in Response:', parsedResult.totalPatients);
+    console.log('   High Risk Count:', parsedResult.highRisk);
+    console.log('   Medium Risk Count:', parsedResult.mediumRisk);
+    console.log('   Low Risk Count:', parsedResult.lowRisk);
+    console.log('   Patient Array Length:', parsedResult.patients?.length || 0);
     
     return parsedResult;
   } catch (error) {

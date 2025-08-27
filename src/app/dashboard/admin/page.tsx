@@ -52,7 +52,11 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   const handleFileUploadData = (jsonData: unknown[]) => {
-    console.log('📊 Data received in admin dashboard:', jsonData.length, 'rows');
+    console.log('📊 GENUINE UPLOAD ANALYSIS - Data received in admin dashboard:');
+    console.log('   Array length:', jsonData.length);
+    console.log('   First record structure:', jsonData[0]);
+    console.log('   Data types in first record:', jsonData[0] ? Object.entries(jsonData[0]).map(([key, value]) => `${key}: ${typeof value}`) : 'No data');
+    console.log('   Complete first 2 records:', jsonData.slice(0, 2));
     setUploadedData(jsonData);
   };
 
@@ -62,11 +66,16 @@ export default function AdminDashboard() {
       return;
     }
 
-    console.log('🤖 Generating prediction for', uploadedData.length, 'patients');
+    console.log('🤖 PREDICTION INITIATION - About to send to Gemini:');
+    console.log('   Data array length:', uploadedData.length);
+    console.log('   Data being sent (first record):', uploadedData[0]);
+    console.log('   Data being sent (last record):', uploadedData[uploadedData.length - 1]);
+    
     setLoading(true);
     try {
       const result = await generatePrediction(uploadedData);
-      console.log('✅ Prediction result:', result);
+      console.log('✅ FINAL RESULT RECEIVED FROM GEMINI:', result);
+      console.log('   Comparison: Sent', uploadedData.length, 'records, Gemini returned', result.totalPatients, 'total patients');
       setPredictionResult(result);
       toast.success('AI prediction completed successfully!');
     } catch (error: unknown) {
