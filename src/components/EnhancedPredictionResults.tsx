@@ -191,7 +191,7 @@ export default function EnhancedPredictionResults({ predictionResult }: Predicti
         <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
           {/* Custom SVG Pie Chart */}
           <div className="relative">
-            <svg width="300" height="300" viewBox="0 0 300 300" className="transform -rotate-90">
+            <svg width="300" height="300" viewBox="0 0 300 300">
               {(() => {
                 const centerX = 150;
                 const centerY = 150;
@@ -204,11 +204,11 @@ export default function EnhancedPredictionResults({ predictionResult }: Predicti
                   const angleInRadians = (angle * Math.PI) / 180;
                   const largeArcFlag = angle > 180 ? 1 : 0;
 
-                  const startX = centerX + radius * Math.cos((currentAngle * Math.PI) / 180);
-                  const startY = centerY + radius * Math.sin((currentAngle * Math.PI) / 180);
+                  const startX = centerX + radius * Math.cos(((currentAngle - 90) * Math.PI) / 180);
+                  const startY = centerY + radius * Math.sin(((currentAngle - 90) * Math.PI) / 180);
                   
-                  const endX = centerX + radius * Math.cos(((currentAngle + angle) * Math.PI) / 180);
-                  const endY = centerY + radius * Math.sin(((currentAngle + angle) * Math.PI) / 180);
+                  const endX = centerX + radius * Math.cos(((currentAngle + angle - 90) * Math.PI) / 180);
+                  const endY = centerY + radius * Math.sin(((currentAngle + angle - 90) * Math.PI) / 180);
 
                   const pathData = [
                     `M ${centerX} ${centerY}`,
@@ -311,56 +311,7 @@ export default function EnhancedPredictionResults({ predictionResult }: Predicti
         </div>
       </motion.div>
 
-      {/* Risk Distribution Visual */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="bg-gradient-to-br from-white to-red-50/30 backdrop-blur-sm border border-red-200/50 rounded-2xl p-6 shadow-xl"
-      >
-        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-          <ChartBarIcon className="h-6 w-6 mr-3 text-red-500" />
-          Risk Distribution
-        </h3>
-
-        {/* Visual Bar Chart */}
-        <div className="space-y-4">
-          {riskData.map((risk, index) => {
-            const IconComponent = risk.icon;
-            return (
-              <motion.div
-                key={risk.level}
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.6 + index * 0.1 }}
-                className="space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <IconComponent className={`h-5 w-5 ${risk.color.icon}`} />
-                    <span className="font-semibold text-gray-900">{risk.level}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`font-bold ${risk.color.text}`}>{risk.count}</span>
-                    <span className="text-gray-500">({risk.percentage}%)</span>
-                  </div>
-                </div>
-                
-                <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
-                  <motion.div
-                    className={`h-full ${risk.color.bg} rounded-full`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${risk.percentage}%` }}
-                    transition={{ duration: 1, delay: 0.7 + index * 0.1, ease: "easeOut" }}
-                  />
-                </div>
-                
-                <p className="text-sm text-gray-600">{risk.description}</p>
-              </motion.div>
-            );
-          })}
-        </div>
-      </motion.div>
+      
 
       
     </motion.div>

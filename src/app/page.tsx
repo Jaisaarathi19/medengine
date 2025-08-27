@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { HeartIcon, ShieldCheckIcon, UserGroupIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { HeartIcon } from '@heroicons/react/24/outline';
 
 const roles = [
   {
@@ -33,13 +33,6 @@ const roles = [
     href: '/login?role=admin',
     color: 'red',
   },
-];
-
-const stats = [
-  { label: 'Active Patients', value: '10,000+', icon: UserGroupIcon },
-  { label: 'Healthcare Providers', value: '500+', icon: ShieldCheckIcon },
-  { label: 'Appointments Today', value: '150+', icon: ClockIcon },
-  { label: 'Success Rate', value: '99.9%', icon: HeartIcon },
 ];
 
 const features = [
@@ -197,140 +190,11 @@ export default function Home() {
               Advanced AI-powered hospital management system revolutionizing patient care, 
               streamlining operations, and empowering healthcare professionals.
             </motion.p>
-
-            <motion.div 
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.8 }}
-            >
-              <motion.button
-                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 transform"
-                whileHover={{ 
-                  scale: 1.05, 
-                  boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.5)" 
-                }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Get Started Today
-              </motion.button>
-              
-              <motion.button
-                className="px-8 py-4 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all duration-300"
-                whileHover={{ 
-                  scale: 1.05,
-                  borderColor: "rgb(59 130 246)",
-                  color: "rgb(37 99 235)",
-                }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Watch Demo
-              </motion.button>
-            </motion.div>
           </motion.div>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="relative z-10 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            className="grid grid-cols-2 md:grid-cols-4 gap-8"
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          >
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                className="text-center p-6 rounded-2xl bg-white/60 backdrop-blur-sm border border-gray-200/50 shadow-lg"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
-                whileHover={{ 
-                  scale: 1.05, 
-                  backgroundColor: "rgba(255, 255, 255, 0.8)",
-                  boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-                }}
-              >
-                <motion.div
-                  className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-4"
-                  whileHover={{ rotate: [0, -10, 10, 0] }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <stat.icon className="w-6 h-6 text-white" />
-                </motion.div>
-                <motion.div 
-                  className="text-3xl font-bold text-gray-900 mb-2"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ duration: 0.5, delay: 0.6 + index * 0.1, type: "spring" }}
-                >
-                  {stat.value}
-                </motion.div>
-                <div className="text-sm font-medium text-gray-600">{stat.label}</div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="relative z-10 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Cutting-Edge Features
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Discover how our advanced technology transforms healthcare delivery
-            </p>
-          </motion.div>
-
-          <motion.div 
-            className="grid md:grid-cols-2 lg:grid-cols-4 gap-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          >
-            {features.map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                className="group p-6 rounded-2xl bg-white/70 backdrop-blur-sm border border-gray-200/50 shadow-lg hover:shadow-2xl transition-all duration-500"
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
-                whileHover={{ 
-                  scale: 1.03, 
-                  y: -5,
-                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)"
-                }}
-              >
-                <motion.div
-                  className={`inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-2xl mb-6 text-2xl shadow-lg group-hover:shadow-xl transition-all duration-300`}
-                  whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {feature.icon}
-                </motion.div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600 leading-relaxed">
-                  {feature.description}
-                </p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Role Selection Section */}
+                {/* Role Selection Section */}
       <section className="relative z-10 py-20 bg-gradient-to-r from-blue-50/50 to-purple-50/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
@@ -435,6 +299,63 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Features Section */}
+      <section className="relative z-10 py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Cutting-Edge Features
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Discover how our advanced technology transforms healthcare delivery
+            </p>
+          </motion.div>
+
+          <motion.div 
+            className="grid md:grid-cols-2 lg:grid-cols-4 gap-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+          >
+            {features.map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                className="group p-6 rounded-2xl bg-white/70 backdrop-blur-sm border border-gray-200/50 shadow-lg hover:shadow-2xl transition-all duration-500"
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
+                whileHover={{ 
+                  scale: 1.03, 
+                  y: -5,
+                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)"
+                }}
+              >
+                <motion.div
+                  className={`inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br ${feature.gradient} rounded-2xl mb-6 text-2xl shadow-lg group-hover:shadow-xl transition-all duration-300`}
+                  whileHover={{ rotate: [0, -5, 5, 0], scale: 1.1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {feature.icon}
+                </motion.div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 leading-relaxed">
+                  {feature.description}
+                </p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      
+
       {/* Footer */}
       <motion.footer 
         className="relative z-10 bg-white/80 backdrop-blur-sm border-t border-gray-200/50"
@@ -455,7 +376,7 @@ export default function Home() {
               </span>
             </motion.div>
             <p className="text-gray-600 mb-4">
-              © 2024 MedEngine AI. Advanced Healthcare Technology Solutions.
+              © 2025 MedEngine AI -Predict Prevent Protect.
             </p>
             <div className="flex items-center justify-center space-x-6 text-sm text-gray-500">
               <span>Privacy Policy</span>
