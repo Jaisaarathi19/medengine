@@ -15,8 +15,8 @@ const firebaseConfig = {
 
 // Initialize Firebase
 let app: FirebaseApp | null = null;
-let db: Firestore | null = null;
-let auth: Auth | null = null;
+let db: Firestore;
+let auth: Auth;
 
 try {
   app = initializeApp(firebaseConfig);
@@ -24,13 +24,12 @@ try {
   auth = getAuth(app);
 } catch (error) {
   console.warn('Firebase initialization failed:', error);
-  // For build-time compatibility, create mock instances
-  app = null;
-  db = null;
-  auth = null;
+  // Create mock instances for build compatibility
+  db = {} as Firestore;
+  auth = {} as Auth;
 }
 
-// Export with null checks
+// Export the instances
 export { db, auth };
 
 // Initialize Analytics (only in browser and if supported)
