@@ -250,11 +250,25 @@ export default function EnhancedPredictionResults({ predictionResult }: Predicti
                 strokeWidth="2"
               />
               
-              {/* Center text */}
-              <text x="150" y="145" textAnchor="middle" className="fill-gray-900 text-sm font-bold transform rotate-90" style={{transformOrigin: '150px 145px'}}>
+              {/* Center text - Fixed positioning without rotation */}
+              <text 
+                x="150" 
+                y="145" 
+                textAnchor="middle" 
+                dominantBaseline="middle"
+                className="fill-gray-900 font-bold"
+                style={{ fontSize: '18px' }}
+              >
                 {predictionResult.totalPatients}
               </text>
-              <text x="150" y="160" textAnchor="middle" className="fill-gray-600 text-xs transform rotate-90" style={{transformOrigin: '150px 160px'}}>
+              <text 
+                x="150" 
+                y="165" 
+                textAnchor="middle" 
+                dominantBaseline="middle"
+                className="fill-gray-600"
+                style={{ fontSize: '12px' }}
+              >
                 Total
               </text>
             </svg>
