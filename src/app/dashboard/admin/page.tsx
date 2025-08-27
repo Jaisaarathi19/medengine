@@ -105,35 +105,27 @@ export default function AdminDashboard() {
   const hospitalStats = [
     {
       title: 'Total Patients',
-      value: predictionResult?.totalPatients || 248,
+      value: predictionResult?.totalPatients || 0,
       change: '+12%',
       changeType: 'increase' as const,
       icon: UsersIcon,
       color: 'bg-blue-500'
     },
     {
-      title: 'High Risk Patients',
-      value: predictionResult?.highRisk || 23,
-      change: '-5%',
+      title: 'Readmission Rate',
+      value: predictionResult ? `${((predictionResult.highRisk / predictionResult.totalPatients) * 100).toFixed(1)}%` : '15.2%',
+      change: '-2.3%',
       changeType: 'decrease' as const,
       icon: ExclamationTriangleIcon,
       color: 'bg-red-500'
     },
     {
-      title: 'Appointments Today',
-      value: 67,
-      change: '+8%',
+      title: 'Model Accuracy',
+      value: predictionResult ? '87.4%' : '0%',
+      change: '+1.8%',
       changeType: 'increase' as const,
-      icon: CalendarIcon,
+      icon: Cog6ToothIcon,
       color: 'bg-green-500'
-    },
-    {
-      title: 'Average Stay',
-      value: '4.2 days',
-      change: '-0.3',
-      changeType: 'decrease' as const,
-      icon: ClockIcon,
-      color: 'bg-purple-500'
     }
   ];
 
