@@ -209,6 +209,22 @@ function LoginForm() {
           </Link>
         </motion.div>
 
+        {/* Demo Credentials Notice */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl"
+        >
+          <h3 className="text-sm font-semibold text-blue-800 mb-2">Demo Credentials:</h3>
+          <div className="text-xs text-blue-700 space-y-1">
+            <div><strong>Admin:</strong> admin@medengine.ai / medengine123</div>
+            <div><strong>Doctor:</strong> doctor@medengine.com / medengine123</div>
+            <div><strong>Nurse:</strong> nurse@medengine.ai / medengine123</div>
+            <div><strong>Patient:</strong> patient@medengine.ai / medengine123</div>
+          </div>
+        </motion.div>
+
         {/* Glassmorphism Login Card */}
         <motion.div
           initial={{ opacity: 0, y: 30, scale: 0.95 }}

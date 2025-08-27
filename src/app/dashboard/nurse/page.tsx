@@ -16,6 +16,7 @@ import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Mock data for nurse dashboard
 const mockPatients = [
@@ -139,7 +140,8 @@ export default function NurseDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50">
+    <ProtectedRoute allowedRoles={['nurse']}>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50">
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -439,5 +441,6 @@ export default function NurseDashboard() {
         </div>
       </main>
     </div>
+    </ProtectedRoute>
   );
 }

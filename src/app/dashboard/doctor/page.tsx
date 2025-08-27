@@ -13,7 +13,6 @@ import {
   ClockIcon,
   ClipboardDocumentIcon
 } from '@heroicons/react/24/outline';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { generatePatientSummary } from '@/lib/gemini';
 import { toast } from 'react-hot-toast';
 import Chatbot from '@/components/Chatbot';
@@ -21,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { formatDate } from '@/lib/utils';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Mock data
 const mockPatients = [
@@ -173,7 +173,8 @@ export default function DoctorDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
+    <ProtectedRoute allowedRoles={['doctor']}>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -450,16 +451,132 @@ export default function DoctorDashboard() {
                 <h3 className="text-lg font-semibold text-gray-900">Patient Vitals Trend</h3>
               </div>
               <div className="p-6">
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={vitalsTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="bloodPressure" stroke="#EF4444" strokeWidth={2} />
-                    <Line type="monotone" dataKey="heartRate" stroke="#3B82F6" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {/* Custom Line Chart */}
+                <div className="space-y-4">
+                  {/* Chart Legend */}
+                  <div className="flex items-center gap-6 mb-4">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-red-500 rounded mr-2"></div>
+                      <span className="text-sm text-gray-600">Blood Pressure</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
+                      <span className="text-sm text-gray-600">Heart Rate</span>
+                    </div>
+                  </div>
+                  
+                  {/* Chart Area */}
+                  <div className="relative h-48 bg-gray-50 rounded-lg p-4">
+                    <svg className="w-full h-full" viewBox="0 0 400 160">
+                      {/* Grid Lines */}
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <line
+                          key={`grid-${i}`}
+                          x1="40"
+                          y1={30 + i * 25}
+                          x2="380"
+                          y2={30 + i * 25}
+                          stroke="#e5e7eb"
+                          strokeWidth="1"
+                        />
+                      ))}
+                      
+                      {/* Y-axis labels */}
+                      <text x="10" y="35" className="text-xs fill-gray-500">160</text>
+                      <text x="10" y="60" className="text-xs fill-gray-500">140</text>
+                      <text x="10" y="85" className="text-xs fill-gray-500">120</text>
+                      <text x="10" y="110" className="text-xs fill-gray-500">100</text>
+                      <text x="10" y="135" className="text-xs fill-gray-500">80</text>
+                      
+                      {/* Blood Pressure Line */}
+                      <motion.path
+                        d={`M 60,${150 - (vitalsTrend[0].bloodPressure - 80)} ${vitalsTrend
+                          .slice(1)
+                          .map((point, index) => 
+                            `L ${60 + (index + 1) * 50},${150 - (point.bloodPressure - 80)}`
+                          )
+                          .join(' ')}`}
+                        fill="none"
+                        stroke="#EF4444"
+                        strokeWidth="2"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 2, ease: "easeInOut" }}
+                      />
+                      
+                      {/* Heart Rate Line */}
+                      <motion.path
+                        d={`M 60,${150 - (vitalsTrend[0].heartRate - 60)} ${vitalsTrend
+                          .slice(1)
+                          .map((point, index) => 
+                            `L ${60 + (index + 1) * 50},${150 - (point.heartRate - 60)}`
+                          )
+                          .join(' ')}`}
+                        fill="none"
+                        stroke="#3B82F6"
+                        strokeWidth="2"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 2, delay: 0.2, ease: "easeInOut" }}
+                      />
+                      
+                      {/* Data Points */}
+                      {vitalsTrend.map((point, index) => (
+                        <g key={`points-${index}`}>
+                          {/* Blood Pressure Point */}
+                          <motion.circle
+                            cx={60 + index * 50}
+                            cy={150 - (point.bloodPressure - 80)}
+                            r="4"
+                            fill="#EF4444"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 1.5 + index * 0.1 }}
+                            className="hover:r-6 cursor-pointer"
+                          />
+                          
+                          {/* Heart Rate Point */}
+                          <motion.circle
+                            cx={60 + index * 50}
+                            cy={150 - (point.heartRate - 60)}
+                            r="4"
+                            fill="#3B82F6"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 1.7 + index * 0.1 }}
+                            className="hover:r-6 cursor-pointer"
+                          />
+                          
+                          {/* Day Label */}
+                          <text
+                            x={60 + index * 50}
+                            y="170"
+                            textAnchor="middle"
+                            className="text-xs fill-gray-500"
+                          >
+                            {point.name}
+                          </text>
+                        </g>
+                      ))}
+                    </svg>
+                  </div>
+                  
+                  {/* Current Values */}
+                  <div className="flex justify-between mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500">Latest BP</div>
+                      <div className="text-lg font-semibold text-red-600">
+                        {vitalsTrend[vitalsTrend.length - 1].bloodPressure}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500">Latest HR</div>
+                      <div className="text-lg font-semibold text-blue-600">
+                        {vitalsTrend[vitalsTrend.length - 1].heartRate}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -598,5 +715,6 @@ export default function DoctorDashboard() {
       {/* Chatbot */}
       <Chatbot />
     </div>
+    </ProtectedRoute>
   );
 }

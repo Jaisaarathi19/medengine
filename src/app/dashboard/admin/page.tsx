@@ -16,7 +16,6 @@ import {
   Cog6ToothIcon,
   HeartIcon
 } from '@heroicons/react/24/outline';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { generatePrediction } from '@/lib/gemini';
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -24,6 +23,7 @@ import Chatbot from '@/components/Chatbot';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 interface PredictionResult {
   totalPatients: number;
@@ -145,7 +145,8 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-gray-50">
+    <ProtectedRoute allowedRoles={['admin']}>
+      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-gray-50">
       {/* Ultra Advanced Animated Background */}
       <div className="absolute inset-0">
         {/* Primary Gradient Layer */}
@@ -327,9 +328,9 @@ export default function AdminDashboard() {
                 whileHover={{ 
                   scale: 1.05, 
                   y: -10,
-                  boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.3)"
+                  boxShadow: "0 25px 50px -12px rgba(59, 130, 246, 0.3)",
+                  transition: { type: "spring", stiffness: 300 }
                 }}
-                whileHoverTransition={{ type: "spring", stiffness: 300 }}
               >
                 {/* Glassmorphism Background */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-white/40 to-white/60"></div>
@@ -658,23 +659,97 @@ export default function AdminDashboard() {
               className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"
             >
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Risk Distribution</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={pieChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={80}
-                    dataKey="value"
-                  >
-                    {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="flex items-center justify-center">
+                {/* Custom Donut Chart */}
+                <div className="relative w-48 h-48">
+                  {/* Background Circle */}
+                  <div className="absolute inset-0 rounded-full bg-gray-100"></div>
+                  
+                  {/* Donut Segments */}
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    {(() => {
+                      const total = pieChartData.reduce((sum, item) => sum + item.value, 0);
+                      let currentAngle = 0;
+                      
+                      return pieChartData.map((item, index) => {
+                        const percentage = (item.value / total) * 100;
+                        const angle = (percentage / 100) * 360;
+                        const largeArcFlag = angle > 180 ? 1 : 0;
+                        
+                        const startAngleRad = (currentAngle * Math.PI) / 180;
+                        const endAngleRad = ((currentAngle + angle) * Math.PI) / 180;
+                        
+                        const innerRadius = 20;
+                        const outerRadius = 40;
+                        
+                        const x1 = 50 + outerRadius * Math.cos(startAngleRad);
+                        const y1 = 50 + outerRadius * Math.sin(startAngleRad);
+                        const x2 = 50 + outerRadius * Math.cos(endAngleRad);
+                        const y2 = 50 + outerRadius * Math.sin(endAngleRad);
+                        
+                        const x3 = 50 + innerRadius * Math.cos(endAngleRad);
+                        const y3 = 50 + innerRadius * Math.sin(endAngleRad);
+                        const x4 = 50 + innerRadius * Math.cos(startAngleRad);
+                        const y4 = 50 + innerRadius * Math.sin(startAngleRad);
+                        
+                        const pathData = [
+                          `M ${x1} ${y1}`,
+                          `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+                          `L ${x3} ${y3}`,
+                          `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4} ${y4}`,
+                          'Z'
+                        ].join(' ');
+                        
+                        currentAngle += angle;
+                        
+                        return (
+                          <motion.path
+                            key={`segment-${index}`}
+                            d={pathData}
+                            fill={item.color}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: index * 0.2, duration: 0.6 }}
+                            className="hover:opacity-80 transition-opacity cursor-pointer"
+                          />
+                        );
+                      });
+                    })()}
+                  </svg>
+                  
+                  {/* Center Text */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {pieChartData.reduce((sum, item) => sum + item.value, 0)}
+                      </div>
+                      <div className="text-sm text-gray-600">Total</div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Legend */}
+                <div className="ml-8 space-y-3">
+                  {pieChartData.map((item, index) => (
+                    <motion.div
+                      key={`legend-${index}`}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 + 0.3 }}
+                      className="flex items-center"
+                    >
+                      <div
+                        className="w-4 h-4 rounded-full mr-3"
+                        style={{ backgroundColor: item.color }}
+                      ></div>
+                      <div className="text-sm">
+                        <div className="font-medium text-gray-900">{item.name}</div>
+                        <div className="text-gray-600">{item.value} patients</div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
           )}
         </motion.div>
@@ -727,5 +802,6 @@ export default function AdminDashboard() {
       {/* Chatbot */}
       <Chatbot />
     </div>
+    </ProtectedRoute>
   );
 }

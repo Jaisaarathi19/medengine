@@ -13,12 +13,12 @@ import {
   PhoneIcon,
   ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { toast } from 'react-hot-toast';
 import Chatbot from '@/components/Chatbot';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { formatDate, formatTime } from '@/lib/utils';
 
 // Mock patient data
@@ -171,7 +171,8 @@ export default function PatientDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+    <ProtectedRoute allowedRoles={['patient']}>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -453,28 +454,80 @@ export default function PatientDashboard() {
                 <p className="text-gray-600 mt-1">Your health metrics over time</p>
               </div>
               <div className="p-6">
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={mockVitals}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line 
-                      type="monotone" 
-                      dataKey="bloodPressure" 
-                      stroke="#8B5CF6" 
-                      strokeWidth={2} 
-                      name="Blood Pressure (Systolic)"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="heartRate" 
-                      stroke="#EF4444" 
-                      strokeWidth={2} 
-                      name="Heart Rate (BPM)"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                {/* Simple Vitals Chart */}
+                <div className="space-y-4">
+                  {/* Legend */}
+                  <div className="flex items-center gap-6 mb-4">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-purple-500 rounded mr-2"></div>
+                      <span className="text-sm text-gray-600">Blood Pressure</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 bg-red-500 rounded mr-2"></div>
+                      <span className="text-sm text-gray-600">Heart Rate</span>
+                    </div>
+                  </div>
+                  
+                  {/* Chart */}
+                  <div className="grid grid-cols-5 gap-4 bg-gray-50 p-4 rounded-lg">
+                    {mockVitals.map((vital, index) => (
+                      <div key={index} className="text-center">
+                        <div className="text-xs text-gray-500 mb-2">{vital.date}</div>
+                        <div className="space-y-2 flex flex-col items-center">
+                          {/* Blood Pressure Bar */}
+                          <div className="w-6 bg-gray-200 rounded-full overflow-hidden">
+                            <motion.div 
+                              className="bg-purple-500 rounded-full"
+                              initial={{ height: 0 }}
+                              animate={{ height: `${(vital.bloodPressure / 140) * 80}px` }}
+                              transition={{ delay: index * 0.1, duration: 0.6 }}
+                              title={`BP: ${vital.bloodPressure}`}
+                            />
+                          </div>
+                          
+                          {/* Heart Rate Bar */}
+                          <div className="w-6 bg-gray-200 rounded-full overflow-hidden">
+                            <motion.div 
+                              className="bg-red-500 rounded-full"
+                              initial={{ height: 0 }}
+                              animate={{ height: `${(vital.heartRate / 100) * 60}px` }}
+                              transition={{ delay: index * 0.1 + 0.2, duration: 0.6 }}
+                              title={`HR: ${vital.heartRate}`}
+                            />
+                          </div>
+                          
+                          {/* Values */}
+                          <div className="text-xs space-y-1">
+                            <div className="text-purple-600 font-semibold">{vital.bloodPressure}</div>
+                            <div className="text-red-600 font-semibold">{vital.heartRate}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Latest Values */}
+                  <div className="grid grid-cols-3 gap-4 mt-4">
+                    <div className="bg-white p-3 rounded-lg border">
+                      <div className="text-xs text-gray-500">Latest BP</div>
+                      <div className="text-lg font-bold text-purple-600">
+                        {mockVitals[mockVitals.length - 1].bloodPressure} mmHg
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border">
+                      <div className="text-xs text-gray-500">Latest HR</div>
+                      <div className="text-lg font-bold text-red-600">
+                        {mockVitals[mockVitals.length - 1].heartRate} BPM
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border">
+                      <div className="text-xs text-gray-500">Temperature</div>
+                      <div className="text-lg font-bold text-blue-600">
+                        {mockVitals[mockVitals.length - 1].temperature}°F
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -586,5 +639,6 @@ export default function PatientDashboard() {
         <Chatbot />
       </motion.main>
     </div>
+    </ProtectedRoute>
   );
 }
