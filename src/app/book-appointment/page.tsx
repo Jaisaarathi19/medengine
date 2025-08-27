@@ -47,6 +47,11 @@ export default function BookAppointmentPage() {
       return;
     }
 
+    if (!db) {
+      toast.error('Database connection not available');
+      return;
+    }
+
     setSearchingPatients(true);
     try {
       // Search in patients collection
@@ -104,6 +109,11 @@ export default function BookAppointmentPage() {
     e.preventDefault();
     
     if (!validateForm()) return;
+
+    if (!db) {
+      toast.error('Database connection not available');
+      return;
+    }
     
     setLoading(true);
 

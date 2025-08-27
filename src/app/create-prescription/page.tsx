@@ -62,6 +62,11 @@ export default function CreatePrescriptionPage() {
       return;
     }
 
+    if (!db) {
+      toast.error('Database connection not available');
+      return;
+    }
+
     setSearchingPatients(true);
     try {
       const patientsRef = collection(db, 'patients');
